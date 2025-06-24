@@ -1,0 +1,33 @@
+{{!
+This template generates JSON serialization logic for arrays and nested objects.
+This template calls itself recursively for nested arrays.
+}}
+{{#isArray}}
+{{#items}}
+{{#isPrimitiveType}}
+for (const auto& item : value) {
+    arrayJson.append(item);
+}
+{{/isPrimitiveType}}
+{{#isModel}}
+for (const auto& item : value) {
+    Json::Value itemJson;
+    to_json(itemJson, item);
+    arrayJson.append(itemJson);
+}
+{{/isModel}}
+{{#isArray}}
+for (const auto& item : value) {
+    Json::Value itemJson(Json::arrayValue);
+    const auto& value = item;
+    {{> model-to-json}}
+    arrayJson.append(itemJson);
+}
+{{/isArray}}
+{{#isString}}
+for (const auto& item : value) {
+    arrayJson.append(item);
+}
+{{/isString}}
+{{/items}}
+{{/isArray}}

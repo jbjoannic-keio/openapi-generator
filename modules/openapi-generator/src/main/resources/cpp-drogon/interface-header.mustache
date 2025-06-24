@@ -1,0 +1,61 @@
+{{>licenseInfo}}
+{{#operations}}/*
+ * {{classname}}.h
+ *
+ * {{description}}
+ */
+
+#ifndef {{classname}}_INTERFACE_H_
+#define {{classname}}_INTERFACE_H_
+
+{{{defaultInclude}}}
+
+#include <drogon/HttpTypes.h>
+
+#include <optional>
+#include <utility>
+#include <variant>
+
+{{#imports}}{{{import}}}
+{{/imports}}
+
+namespace {{apiNamespace}}
+{
+
+class {{declspec}} {{classname}}Interface {
+public:
+    virtual ~{{classname}}Interface() = default;
+
+
+    {{#operation}}
+    using {{operationId}}Response = std::variant<{{#vendorExtensions.x-codegen-response-variants}}{{#contentInfos}}{{^isVariantDuplicate}}{{#dataType}}std::pair<std::integral_constant<drogon::HttpStatusCode, drogon::{{statusCode}}>,{{{dataType}}}>{{/dataType}}{{^dataType}}std::integral_constant<drogon::HttpStatusCode, drogon::{{statusCode}}>{{/dataType}}{{^-last}},{{/-last}}{{/isVariantDuplicate}}{{/contentInfos}}{{^-last}},{{/-last}}{{/vendorExtensions.x-codegen-response-variants}}>;
+    {{/operation}}
+
+
+
+    {{#operation}}
+    /// <summary>
+    /// {{summary}}
+    /// </summary>
+    /// <remarks>
+    /// {{notes}}
+    /// </remarks>
+    {{#vendorExtensions.x-codegen-drogon-is-parsing-supported}}
+    {{#allParams}}
+    /// <param name="{{#isHeaderParam}}header_{{/isHeaderParam}}{{#isQueryParam}}query_{{/isQueryParam}}{{#isPathParam}}path_{{/isPathParam}}{{paramName}}">{{description}}{{^required}} (optional{{#defaultValue}}, default to {{.}}{{/defaultValue}}){{/required}}</param>
+    {{/allParams}}
+    virtual void {{operationIdSnakeCase}}({{#allParams}}const {{#isModel}}{{^isOptional}}{{modelNamespace}}::{{/isOptional}}{{/isModel}}{{{dataType}}} &{{#isHeaderParam}}header_{{/isHeaderParam}}{{#isQueryParam}}query_{{/isQueryParam}}{{#isPathParam}}path_{{/isPathParam}}{{paramName}}{{^-last}}, {{/-last}}{{/allParams}}{{#hasParams}}, {{/hasParams}}{{operationId}}Response &response) = 0;
+    {{/vendorExtensions.x-codegen-drogon-is-parsing-supported}}
+    {{^vendorExtensions.x-codegen-drogon-is-parsing-supported}}
+    // virtual void {{operationIdSnakeCase}}(const drogon::HttpRequestPtr& req, std::function<void (const drogon::HttpResponsePtr &)>&& callback) = 0;
+    virtual void {{operationIdSnakeCase}}(const drogon::HttpRequestPtr& req, {{#allParams}}{{^isBodyParam}}const {{#isModel}}{{^isOptional}}{{modelNamespace}}::{{/isOptional}}{{/isModel}}{{{dataType}}} &{{#isHeaderParam}}header_{{/isHeaderParam}}{{#isQueryParam}}query_{{/isQueryParam}}{{#isPathParam}}path_{{/isPathParam}}{{paramName}}{{^-last}}, {{/-last}}{{/isBodyParam}}{{/allParams}}{{#hasParams}}, {{/hasParams}}{{operationId}}Response &response) = 0;
+    {{/vendorExtensions.x-codegen-drogon-is-parsing-supported}}
+    {{/operation}}
+
+};
+
+} // namespace {{apiNamespace}}
+
+#endif /* {{classname}}_INTERFACE_H_ */
+
+{{/operations}}

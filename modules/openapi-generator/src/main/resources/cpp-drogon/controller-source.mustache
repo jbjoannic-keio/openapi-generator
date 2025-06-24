@@ -1,0 +1,222 @@
+{{>licenseInfo}}
+{{#operations}}
+
+#include "{{classname}}.h"
+#include "{{prefix}}Helpers.h"
+#include <json/json.h>
+
+namespace {{apiNamespace}}
+{
+
+using namespace {{helpersNamespace}};
+{{#hasModelImport}}
+using namespace {{modelNamespace}};{{/hasModelImport}}
+
+//const std::string {{classname}}::base = "{{basePathWithoutHost}}";
+
+
+void {{classname}}::handleParsingException(const std::exception& ex, std::function<void (const drogon::HttpResponsePtr &)>&& callback) const noexcept
+{
+    std::pair<drogon::HttpStatusCode, std::string> codeAndError = handleParsingException(ex);
+    auto response = drogon::HttpResponse::newHttpResponse(codeAndError.second);
+    response->setStatusCode(codeAndError.first);
+    callback(response);
+}
+
+std::pair<drogon::HttpStatusCode, std::string> {{classname}}::handleParsingException(const std::exception& ex) const noexcept
+{
+    try {
+        throw;
+    } catch (Json::Exception &e) {
+        return std::make_pair(drogon::k400BadRequest, e.what());
+    } catch ({{helpersNamespace}}::ValidationException &e) {
+        return std::make_pair(drogon::k400BadRequest, e.what());
+    } catch (std::exception &e) {
+        return std::make_pair(drogon::k500InternalServerError, e.what());
+    }
+}
+
+void {{classname}}::handleOperationException(const std::exception& ex, std::function<void (const drogon::HttpResponsePtr &)>&& callback) const noexcept
+{
+    std::pair<drogon::HttpStatusCode, std::string> codeAndError = handleOperationException(ex);
+    auto response = drogon::HttpResponse::newHttpResponse(codeAndError.second);
+    response->setStatusCode(codeAndError.first)
+    callback(response);
+}
+
+std::pair<drogon::HttpStatusCode, std::string> {{classname}}::handleOperationException(const std::exception& ex) const noexcept
+{
+    return std::make_pair(drogon::k500InternalServerError, ex.what());
+}
+
+{{#operation}}
+void {{classname}}::{{operationIdSnakeCase}}_handler(const drogon::HttpRequestPtr& req, std::function<void (const drogon::HttpResponsePtr &)>&& callback{{#allParams}}{{^isBodyParam}}{{^isHeaderParam}}, const {{{dataType}}}&& {{#isQueryParam}}query_{{/isQueryParam}}{{#isPathParam}}path_{{/isPathParam}}{{paramName}}{{/isHeaderParam}}{{/isBodyParam}}{{/allParams}})) {
+    try {
+
+    {{#vendorExtensions.x-codegen-drogon-is-parsing-supported}}
+    {{#hasPathParams}}
+    // Getting the path params
+    {{#pathParams}}
+    // auto {{paramName}} = request.param(":{{paramName}}").as<{{dataType}}>();
+    {{/pathParams}}
+    {{/hasPathParams}}{{#hasBodyParam}}
+    // Getting the body param
+    {{#bodyParam}}
+    {{^isPrimitiveType}}{{^isContainer}}
+    {{baseType}} {{paramName}};{{/isContainer}}{{#isArray}}std::vector<{{items.baseType}}> {{paramName}};{{/isArray}}{{#isMap}}std::map<std::string, {{items.baseType}}> {{paramName}};{{/isMap}}{{/isPrimitiveType}}
+    {{#isPrimitiveType}}
+    {{dataType}} {{paramName}};
+    {{/isPrimitiveType}}
+    {{/bodyParam}}
+    {{/hasBodyParam}}{{#hasQueryParams}}
+    // Getting the query params
+    {{#queryParams}}
+    auto {{paramName}}Query = request.query().get("{{baseName}}");
+    std::optional<{{^isContainer}}{{dataType}}{{/isContainer}}{{#isArray}}std::vector<{{items.baseType}}>{{/isArray}}> {{paramName}};
+    if({{paramName}}Query.has_value()){
+        {{^isContainer}}{{dataType}}{{/isContainer}}{{#isArray}}std::vector<{{items.baseType}}>{{/isArray}} valueQuery_instance;
+        if(fromStringValue({{paramName}}Query.value(), valueQuery_instance)){
+            {{paramName}} = valueQuery_instance;
+        }
+    }
+    {{/queryParams}}
+    {{/hasQueryParams}}{{#hasHeaderParams}}
+    // Getting the header params
+    {{#headerParams}}
+    std::string header_{{paramName}} = req->getHeader("{{baseName}}");
+    {{#isPrimitiveType}}
+    {{#isInteger}}
+    {{dataType}} {{paramName}} = std::stoi(header_{{paramName}});
+    {{/isInteger}}
+    {{#isNumber}}
+    {{dataType}} {{paramName}} = std::stod(header_{{paramName}});
+    {{/isNumber}}
+    {{#isBoolean}}
+    {{dataType}} {{paramName}};
+    if (header_{{paramName}} == "true" || header_{{paramName}} == "1") {
+        {{paramName}} = true;
+    } else {
+        {{paramName}} = false;
+    }
+    {{/isBoolean}}
+    {{#isString}}
+    {{dataType}} {{paramName}} = header_{{paramName}};
+    {{/isString}}
+    {{/isPrimitiveType}}
+    std::string raw_header_{{paramName}} = header_{{paramName}};
+    {{/headerParams}}
+    {{/hasHeaderParams}}
+
+    try {
+    {{#hasBodyParam}}
+    {{#bodyParam}}
+    {{^isPrimitiveType}}
+        Json::Value jsonBody;
+        Json::Reader reader;
+        if (!reader.parse(req->getBody(), jsonBody)) {
+            throw std::invalid_argument("Invalid JSON in request body");
+        }
+        from_json(jsonBody, {{paramName}});{{#isArray}}
+        for (const auto& validationParam : {{paramName}})
+             validationParam.validate();{{/isArray}}{{^isArray}}
+        {{paramName}}.validate();{{/isArray}}
+    {{/isPrimitiveType}}
+    {{#isPrimitiveType}}
+        {{paramName}} = req->getBody();
+    {{/isPrimitiveType}}
+    } catch (std::exception &e) {
+        this->handleParsingException(e, callback);
+        return;
+    }
+
+    try {
+    {{/bodyParam}}
+    {{/hasBodyParam}}
+        this->service->{{operationIdSnakeCase}}({{#allParams}}const {{#isModel}}{{^isOptional}}{{modelNamespace}}::{{/isOptional}}{{/isModel}}{{{dataType}}} &{{#isHeaderParam}}header_{{/isHeaderParam}}{{#isQueryParam}}query_{{/isQueryParam}}{{#isPathParam}}path_{{/isPathParam}}{{paramName}}{{^-last}}, {{/-last}}{{/allParams}}{{#hasParams}}, {{/hasParams}}{{operationId}}Response &response);
+    {{/vendorExtensions.x-codegen-drogon-is-parsing-supported}}
+    {{^vendorExtensions.x-codegen-drogon-is-parsing-supported}}
+    {{#vendorExtensions.x-codegen-drogon-is-parsing-supported}}
+    {{#hasPathParams}}
+    // Getting the path params
+    {{#pathParams}}
+    // auto {{paramName}} = request.param(":{{paramName}}").as<{{dataType}}>();
+    {{/pathParams}}
+    {{/hasPathParams}}{{#hasBodyParam}}
+    // Getting the body param
+    {{#bodyParam}}
+    {{^isPrimitiveType}}{{^isContainer}}
+    {{baseType}} {{paramName}};{{/isContainer}}{{#isArray}}std::vector<{{items.baseType}}> {{paramName}};{{/isArray}}{{#isMap}}std::map<std::string, {{items.baseType}}> {{paramName}};{{/isMap}}{{/isPrimitiveType}}
+    {{#isPrimitiveType}}
+    {{dataType}} {{paramName}};
+    {{/isPrimitiveType}}
+    {{/bodyParam}}
+    {{/hasBodyParam}}{{#hasQueryParams}}
+    // Getting the query params
+    {{#queryParams}}
+    auto {{paramName}}Query = request.query().get("{{baseName}}");
+    std::optional<{{^isContainer}}{{dataType}}{{/isContainer}}{{#isArray}}std::vector<{{items.baseType}}>{{/isArray}}> {{paramName}};
+    if({{paramName}}Query.has_value()){
+        {{^isContainer}}{{dataType}}{{/isContainer}}{{#isArray}}std::vector<{{items.baseType}}>{{/isArray}} valueQuery_instance;
+        if(fromStringValue({{paramName}}Query.value(), valueQuery_instance)){
+            {{paramName}} = valueQuery_instance;
+        }
+    }
+    {{/queryParams}}
+    {{/hasQueryParams}}{{#hasHeaderParams}}
+    // Getting the header params
+    {{#headerParams}}
+    std::string header_{{paramName}} = req->getHeader("{{baseName}}");
+    {{#isPrimitiveType}}
+    {{#isInteger}}
+    {{dataType}} {{paramName}} = std::stoi(header_{{paramName}});
+    {{/isInteger}}
+    {{#isNumber}}
+    {{dataType}} {{paramName}} = std::stod(header_{{paramName}});
+    {{/isNumber}}
+    {{#isBoolean}}
+    {{dataType}} {{paramName}};
+    if (header_{{paramName}} == "true" || header_{{paramName}} == "1") {
+        {{paramName}} = true;
+    } else {
+        {{paramName}} = false;
+    }
+    {{/isBoolean}}
+    {{#isString}}
+    {{dataType}} {{paramName}} = header_{{paramName}};
+    {{/isString}}
+    {{/isPrimitiveType}}
+    std::string raw_header_{{paramName}} = header_{{paramName}};
+    {{/headerParams}}
+    {{/hasHeaderParams}}
+    try {
+      this->service->{{operationIdSnakeCase}}(const drogon::HttpRequestPtr& req, {{#allParams}}{{^isBodyParam}}const {{#isModel}}{{^isOptional}}{{modelNamespace}}::{{/isOptional}}{{/isModel}}{{{dataType}}} &{{#isHeaderParam}}header_{{/isHeaderParam}}{{#isQueryParam}}query_{{/isQueryParam}}{{#isPathParam}}path_{{/isPathParam}}{{paramName}}{{^-last}}, {{/-last}}{{/isBodyParam}}{{/allParams}}{{#hasParams}}, {{/hasParams}}{{operationId}}Response &response);
+
+
+
+    {{/vendorExtensions.x-codegen-drogon-is-parsing-supported}}
+    } catch (Pistache::Http::HttpError &e) {
+        response.send(static_cast<drogon::HttpStatusCode>(e.code()), e.what());
+        return;
+    } catch (std::exception &e) {
+        this->handleOperationException(e, callback);
+        return;
+    }
+
+    } catch (std::exception &e) {
+        auto response = drogon::HttpResponse::newHttpResponse(e.what());
+        response->setStatusCode(drogon::k500InternalServerError);
+        callback(response);
+    }
+
+}
+{{/operation}}
+
+void {{classname}}::{{classnameSnakeLowerCase}}_default_handler(const drogon::HttpRequestPtr& req, std::function<void (const drogon::HttpResponsePtr &)>&& callback) {
+    auto response = drogon::HttpResponse::newHttpResponse("The requested method does not exist");
+    response->setStatusCode(drogon::k404NotFound);
+    callback(response);
+}
+
+} // namespace {{apiNamespace}}
+
+{{/operations}}

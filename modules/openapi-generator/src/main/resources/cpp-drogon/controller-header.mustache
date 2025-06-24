@@ -1,0 +1,84 @@
+{{>licenseInfo}}
+{{#operations}}/*
+ * {{classname}}.h
+ *
+ * {{description}}
+ */
+
+#ifndef {{classname}}_H_
+#define {{classname}}_H_
+
+{{{defaultInclude}}}
+
+#include <drogon/HttpController.h>
+#include "{{classname}}Interface.h"
+
+#include <optional>
+#include <utility>
+
+{{#imports}}{{{import}}}
+{{/imports}}
+
+namespace {{apiNamespace}}
+{
+
+class {{declspec}} {{classname}} : public drogon::HttpController<{{classname}}, false> {
+
+
+private:
+
+    METHOD_LIST_BEGIN
+    {{#operation}}
+    ADD_METHOD_TO({{classname}}::{{operationIdSnakeCase}}_handler, base + "{{{vendorExtensions.x-codegen-path-complete}}}", "{{httpMethod}}");
+    {{/operation}}
+    METHOD_LIST_END
+public:
+
+    {{#operation}}
+    void {{operationIdSnakeCase}}_handler(const drogon::HttpRequestPtr& req, std::function<void (const drogon::HttpResponsePtr &)>&& callback{{#allParams}}{{^isBodyParam}}{{^isHeaderParam}}, const {{{dataType}}}&& {{#isQueryParam}}query_{{/isQueryParam}}{{#isPathParam}}path_{{/isPathParam}}{{paramName}}{{/isHeaderParam}}{{/isBodyParam}}{{/allParams}});
+    {{/operation}}
+
+    static const std::string base;
+
+    {{classname}}() = default;
+    explicit {{classname}}(std::unique_ptr<{{classname}}Interface> service) : service(std::move(service)) {}
+
+private:
+    std::unique_ptr<{{classname}}Interface> service;
+
+
+    /// <summary>
+    /// Helper function to handle unexpected Exceptions during Parameter parsing and validation.
+    /// May be overridden to return custom error formats. This is called inside a catch block.
+    /// Important: When overriding, do not call `throw ex;`, but instead use `throw;`.
+    /// </summary>
+    virtual void handleParsingException(const std::exception& ex, std::function<void (const drogon::HttpResponsePtr &)>&& callback) const noexcept;
+
+    /// <summary>
+    /// Helper function to handle unexpected Exceptions during Parameter parsing and validation.
+    /// May be overridden to return custom error formats. This is called inside a catch block.
+    /// Important: When overriding, do not call `throw ex;`, but instead use `throw;`.
+    /// </summary>
+    virtual std::pair<drogon::HttpStatusCode, std::string> handleParsingException(const std::exception& ex) const noexcept;
+
+    /// <summary>
+    /// Helper function to handle unexpected Exceptions during processing of the request in handler functions.
+    /// May be overridden to return custom error formats. This is called inside a catch block.
+    /// Important: When overriding, do not call `throw ex;`, but instead use `throw;`.
+    /// </summary>
+    virtual void handleOperationException(const std::exception& ex, std::function<void (const drogon::HttpResponsePtr &)>&& callback) const noexcept;
+
+    /// <summary>
+    /// Helper function to handle unexpected Exceptions during processing of the request in handler functions.
+    /// May be overridden to return custom error formats. This is called inside a catch block.
+    /// Important: When overriding, do not call `throw ex;`, but instead use `throw;`.
+    /// </summary>
+    virtual std::pair<drogon::HttpStatusCode, std::string> handleOperationException(const std::exception& ex) const noexcept;
+
+};
+
+} // namespace {{apiNamespace}}
+
+#endif /* {{classname}}_H_ */
+
+{{/operations}}
