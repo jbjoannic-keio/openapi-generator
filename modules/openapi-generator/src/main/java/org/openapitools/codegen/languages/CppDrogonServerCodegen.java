@@ -49,6 +49,8 @@ import org.openapitools.codegen.model.OperationsMap;
 import org.openapitools.codegen.utils.ModelUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.openapitools.codegen.meta.GeneratorMetadata;
+import org.openapitools.codegen.meta.Stability;
 
 import io.swagger.v3.oas.models.Operation;
 import io.swagger.v3.oas.models.media.Schema;
@@ -225,6 +227,10 @@ public class CppDrogonServerCodegen extends AbstractCppCodegen {
 
     public CppDrogonServerCodegen() {
         super();
+        generatorMetadata = GeneratorMetadata
+                .newBuilder()
+                .stability(Stability.BETA)   // marks it “beta” in CLI list
+                .build();
 
         // TODO: cpp-drogon-server maintainer review
         modifyFeatureSet(features -> features
@@ -345,6 +351,26 @@ public class CppDrogonServerCodegen extends AbstractCppCodegen {
 
         setupModelTemplate();
     }
+
+    @Override
+    public void addOperationToGroup(String tag,
+                                    String resourcePath,
+                                    Operation operation,
+                                    CodegenOperation op,
+                                    Map<String, List<CodegenOperation>> operations) {
+
+        /* Use first tag as controller name; fall back to “default” */
+        String baseTag = (tag == null || tag.trim().isEmpty())
+                ? "default"
+                : sanitizeTag(tag);
+
+        /* Tell the templates which controller they belong to            */
+        op.baseName = baseTag;
+
+        /* Accumulate operations under the same controller               */
+        operations.computeIfAbsent(baseTag, k -> new ArrayList<>()).add(op);
+    }
+
 
     private void setupModelTemplate() {
         if (additionalProperties.containsKey(OPTION_USE_STRUCT_MODEL))
@@ -571,11 +597,12 @@ public class CppDrogonServerCodegen extends AbstractCppCodegen {
         operations.put("classnameSnakeLowerCase", underscore(classname).toLowerCase(Locale.ROOT));
         List<CodegenOperation> operationList = operations.getOperation();
         for (CodegenOperation op : operationList) {
+            op.vendorExtensions.put("operationIdSnakeCase", underscore(op.operationId));
             postProcessSingleOperation(operations, op);
         }
-
         return objs;
     }
+
 
     private void postProcessSingleOperation(OperationMap operations, CodegenOperation op) {
         if (op.vendorExtensions == null) {
