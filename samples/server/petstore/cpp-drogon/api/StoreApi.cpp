@@ -9,7 +9,6 @@
 * https://openapi-generator.tech
 * Do not edit the class manually.
 */
-
     #include "StoreApi.h"
     #include "Helpers.h"
     #include <json/json.h>
@@ -22,33 +21,36 @@
 
     const std::string StoreApi::base = "/v2";
 
+    /* ----------------------------------------------------------------------
+    *  Generic helpers
+    * -------------------------------------------------------------------- */
     void StoreApi::handleParsingException(
     const std::exception& ex,
-    std::function<void (const drogon::HttpResponsePtr &)>&& callback) const noexcept
+    std::function<void (const drogon::HttpResponsePtr &)>&& cb) const noexcept
         {
         auto [status, body] = handleParsingException(ex);
-        auto resp          = drogon::HttpResponse::newHttpResponse(body);
+        auto resp           = drogon::HttpResponse::newHttpResponse(body);
         resp->setStatusCode(status);
-        callback(resp);
+        cb(resp);
         }
 
         std::pair<drogon::HttpStatusCode, std::string>
     StoreApi::handleParsingException(const std::exception& ex) const noexcept
         {
         try { throw; }
-        catch (Json::Exception&               e) { return {drogon::k400BadRequest, e.what()}; }
-        catch (ValidationException&           e) { return {drogon::k400BadRequest, e.what()}; }
-        catch (std::exception&                e) { return {drogon::k500InternalServerError, e.what()}; }
+        catch (Json::Exception&     e) { return {drogon::k400BadRequest, e.what()}; }
+        catch (ValidationException& e) { return {drogon::k400BadRequest, e.what()}; }
+        catch (std::exception&      e) { return {drogon::k500InternalServerError, e.what()}; }
         }
 
         void StoreApi::handleOperationException(
         const std::exception& ex,
-        std::function<void (const drogon::HttpResponsePtr &)>&& callback) const noexcept
+        std::function<void (const drogon::HttpResponsePtr &)>&& cb) const noexcept
         {
         auto [status, body] = handleOperationException(ex);
-        auto resp          = drogon::HttpResponse::newHttpResponse(body);
+        auto resp           = drogon::HttpResponse::newHttpResponse(body);
         resp->setStatusCode(status);
-        callback(resp);
+        cb(resp);
         }
 
         std::pair<drogon::HttpStatusCode, std::string>
@@ -57,108 +59,99 @@
         return {drogon::k500InternalServerError, ex.what()};
         }
 
+        /* ----------------------------------------------------------------------
+        *  One method per operation
+        * -------------------------------------------------------------------- */
             /* ---------- deleteOrder ---------- */
             void StoreApi::delete_order_handler(
             const drogon::HttpRequestPtr& req,
-            std::function<void (const drogon::HttpResponsePtr &)>&& callback,
+            std::function<void (const drogon::HttpResponsePtr &)>&& cb,
             const std::string& path_orderId)
             {
             try {
-                /* --------‑‑‑ parameter extraction ‑‑‑--------- */
-                    // Path parameters
-                        // auto orderId = /* extract from route */ ;
+                /* -------- parameter extraction -------- */
 
 
 
-                /* ---------- call service ---------- */
-            deleteOrderResponse response;
+                /* -------- delegate to service -------- */
+            deleteOrderResponse respVariant;
                 service->delete_order(
-            path_orderId, response);
+            path_orderId
+                respVariant);
 
-                /* ---------- serialize & return ---------- */
-                // You can convert `response` (std::variant) to HttpResponse here.
-                // For now just return 501.
-                auto resp = drogon::HttpResponse::newHttpResponse("Not implemented");
-                resp->setStatusCode(drogon::k501NotImplemented);
-                callback(resp);
+                /* -------- serialize & return -------- */
+                auto resp = org::openapitools::server::helpers::variantToHttp(respVariant);
+                cb(resp);
 
 
             } catch (const std::exception& e) {
             auto resp = drogon::HttpResponse::newHttpResponse(e.what());
             resp->setStatusCode(drogon::k500InternalServerError);
-            callback(resp);
+            cb(resp);
             }
             }
             /* ---------- getInventory ---------- */
             void StoreApi::get_inventory_handler(
             const drogon::HttpRequestPtr& req,
-            std::function<void (const drogon::HttpResponsePtr &)>&& callback)
+            std::function<void (const drogon::HttpResponsePtr &)>&& cb)
             {
             try {
-                /* --------‑‑‑ parameter extraction ‑‑‑--------- */
+                /* -------- parameter extraction -------- */
 
 
 
-                /* ---------- call service ---------- */
-            getInventoryResponse response;
+                /* -------- delegate to service -------- */
+            getInventoryResponse respVariant;
                 service->get_inventory(
-            response);
+            
+                respVariant);
 
-                /* ---------- serialize & return ---------- */
-                // You can convert `response` (std::variant) to HttpResponse here.
-                // For now just return 501.
-                auto resp = drogon::HttpResponse::newHttpResponse("Not implemented");
-                resp->setStatusCode(drogon::k501NotImplemented);
-                callback(resp);
+                /* -------- serialize & return -------- */
+                auto resp = org::openapitools::server::helpers::variantToHttp(respVariant);
+                cb(resp);
 
 
             } catch (const std::exception& e) {
             auto resp = drogon::HttpResponse::newHttpResponse(e.what());
             resp->setStatusCode(drogon::k500InternalServerError);
-            callback(resp);
+            cb(resp);
             }
             }
             /* ---------- getOrderById ---------- */
             void StoreApi::get_order_by_id_handler(
             const drogon::HttpRequestPtr& req,
-            std::function<void (const drogon::HttpResponsePtr &)>&& callback,
+            std::function<void (const drogon::HttpResponsePtr &)>&& cb,
             const std::int64_t& path_orderId)
             {
             try {
-                /* --------‑‑‑ parameter extraction ‑‑‑--------- */
-                    // Path parameters
-                        // auto orderId = /* extract from route */ ;
+                /* -------- parameter extraction -------- */
 
 
 
-                /* ---------- call service ---------- */
-            getOrderByIdResponse response;
+                /* -------- delegate to service -------- */
+            getOrderByIdResponse respVariant;
                 service->get_order_by_id(
-            path_orderId, response);
+            path_orderId
+                respVariant);
 
-                /* ---------- serialize & return ---------- */
-                // You can convert `response` (std::variant) to HttpResponse here.
-                // For now just return 501.
-                auto resp = drogon::HttpResponse::newHttpResponse("Not implemented");
-                resp->setStatusCode(drogon::k501NotImplemented);
-                callback(resp);
+                /* -------- serialize & return -------- */
+                auto resp = org::openapitools::server::helpers::variantToHttp(respVariant);
+                cb(resp);
 
 
             } catch (const std::exception& e) {
             auto resp = drogon::HttpResponse::newHttpResponse(e.what());
             resp->setStatusCode(drogon::k500InternalServerError);
-            callback(resp);
+            cb(resp);
             }
             }
             /* ---------- placeOrder ---------- */
             void StoreApi::place_order_handler(
             const drogon::HttpRequestPtr& req,
-            std::function<void (const drogon::HttpResponsePtr &)>&& callback)
+            std::function<void (const drogon::HttpResponsePtr &)>&& cb)
             {
             try {
-                /* --------‑‑‑ parameter extraction ‑‑‑--------- */
-
-                    // Body parameter
+                /* -------- parameter extraction -------- */
                         Order order;
                             try {
                             Json::Value jsonBody;
@@ -168,38 +161,37 @@
                             from_json(jsonBody, order);
                         order.validate();
                             } catch (const std::exception& e) {
-                            handleParsingException(e, std::move(callback));
+                            handleParsingException(e, std::move(cb));
                             return;
                             }
 
 
-                /* ---------- call service ---------- */
-            placeOrderResponse response;
-                service->place_order(
-            order, response);
 
-                /* ---------- serialize & return ---------- */
-                // You can convert `response` (std::variant) to HttpResponse here.
-                // For now just return 501.
-                auto resp = drogon::HttpResponse::newHttpResponse("Not implemented");
-                resp->setStatusCode(drogon::k501NotImplemented);
-                callback(resp);
+                /* -------- delegate to service -------- */
+            placeOrderResponse respVariant;
+                service->place_order(
+            order
+                respVariant);
+
+                /* -------- serialize & return -------- */
+                auto resp = org::openapitools::server::helpers::variantToHttp(respVariant);
+                cb(resp);
 
 
             } catch (const std::exception& e) {
             auto resp = drogon::HttpResponse::newHttpResponse(e.what());
             resp->setStatusCode(drogon::k500InternalServerError);
-            callback(resp);
+            cb(resp);
             }
             }
 
         void StoreApi::store_api_default_handler(
-        const drogon::HttpRequestPtr&               /*req*/,
-        std::function<void (const drogon::HttpResponsePtr &)>&& callback)
+        const drogon::HttpRequestPtr& /*req*/,
+        std::function<void (const drogon::HttpResponsePtr &)>&& cb)
         {
         auto resp = drogon::HttpResponse::newHttpResponse("The requested method does not exist");
         resp->setStatusCode(drogon::k404NotFound);
-        callback(resp);
+        cb(resp);
         }
 
         } // namespace org::openapitools::server::api

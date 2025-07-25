@@ -1,6 +1,5 @@
 {{>licenseInfo}}
 {{#operations}}
-
     #include "{{classname}}.h"
     #include "{{prefix}}Helpers.h"
     #include <json/json.h>
@@ -14,33 +13,36 @@
 
     const std::string {{classname}}::base = "{{basePathWithoutHost}}";
 
+    /* ----------------------------------------------------------------------
+    *  Generic helpers
+    * -------------------------------------------------------------------- */
     void {{classname}}::handleParsingException(
     const std::exception& ex,
-    std::function<void (const drogon::HttpResponsePtr &)>&& callback) const noexcept
+    std::function<void (const drogon::HttpResponsePtr &)>&& cb) const noexcept
         {
         auto [status, body] = handleParsingException(ex);
-        auto resp          = drogon::HttpResponse::newHttpResponse(body);
+        auto resp           = drogon::HttpResponse::newHttpResponse(body);
         resp->setStatusCode(status);
-        callback(resp);
+        cb(resp);
         }
 
         std::pair<drogon::HttpStatusCode, std::string>
     {{classname}}::handleParsingException(const std::exception& ex) const noexcept
         {
         try { throw; }
-        catch (Json::Exception&               e) { return {drogon::k400BadRequest, e.what()}; }
-        catch (ValidationException&           e) { return {drogon::k400BadRequest, e.what()}; }
-        catch (std::exception&                e) { return {drogon::k500InternalServerError, e.what()}; }
+        catch (Json::Exception&     e) { return {drogon::k400BadRequest, e.what()}; }
+        catch (ValidationException& e) { return {drogon::k400BadRequest, e.what()}; }
+        catch (std::exception&      e) { return {drogon::k500InternalServerError, e.what()}; }
         }
 
         void {{classname}}::handleOperationException(
         const std::exception& ex,
-        std::function<void (const drogon::HttpResponsePtr &)>&& callback) const noexcept
+        std::function<void (const drogon::HttpResponsePtr &)>&& cb) const noexcept
         {
         auto [status, body] = handleOperationException(ex);
-        auto resp          = drogon::HttpResponse::newHttpResponse(body);
+        auto resp           = drogon::HttpResponse::newHttpResponse(body);
         resp->setStatusCode(status);
-        callback(resp);
+        cb(resp);
         }
 
         std::pair<drogon::HttpStatusCode, std::string>
@@ -49,25 +51,20 @@
         return {drogon::k500InternalServerError, ex.what()};
         }
 
+        /* ----------------------------------------------------------------------
+        *  One method per operation
+        * -------------------------------------------------------------------- */
     {{#operation}}
             /* ---------- {{operationId}} ---------- */
             void {{classname}}::{{vendorExtensions.operationIdSnakeCase}}_handler(
             const drogon::HttpRequestPtr& req,
-            std::function<void (const drogon::HttpResponsePtr &)>&& callback{{#allParams}}{{^isBodyParam}}{{^isHeaderParam}},
+            std::function<void (const drogon::HttpResponsePtr &)>&& cb{{#allParams}}{{^isBodyParam}}{{^isHeaderParam}},
             const {{{dataType}}}& {{#isQueryParam}}query_{{/isQueryParam}}{{#isPathParam}}path_{{/isPathParam}}{{paramName}}{{/isHeaderParam}}{{/isBodyParam}}{{/allParams}})
             {
             try {
         {{#vendorExtensions.x-codegen-drogon-is-parsing-supported}}
-                /* --------‑‑‑ parameter extraction ‑‑‑--------- */
-            {{#hasPathParams}}
-                    // Path parameters
-                {{#pathParams}}
-                        // auto {{paramName}} = /* extract from route */ ;
-                {{/pathParams}}
-            {{/hasPathParams}}
-
+                /* -------- parameter extraction -------- */
             {{#hasBodyParam}}
-                    // Body parameter
                 {{#bodyParam}}
                     {{^isPrimitiveType}}
                         {{baseType}} {{paramName}};
@@ -79,20 +76,16 @@
                             from_json(jsonBody, {{paramName}});
                         {{paramName}}.validate();
                             } catch (const std::exception& e) {
-                            handleParsingException(e, std::move(callback));
+                            handleParsingException(e, std::move(cb));
                             return;
                             }
-                    {{/isPrimitiveType}}
-                    {{#isPrimitiveType}}
-                        {{{dataType}}} {{paramName}} = req->getBody();
                     {{/isPrimitiveType}}
                 {{/bodyParam}}
             {{/hasBodyParam}}
 
             {{#hasQueryParams}}
-                    // Query parameters
                 {{#queryParams}}
-                        {   /* {{paramName}} */
+                        {
                         auto _q = req->getParameter("{{baseName}}");
                         std::optional<{{{dataType}}}> {{paramName}};
                         if (!_q.empty()) {
@@ -105,7 +98,6 @@
             {{/hasQueryParams}}
 
             {{#hasHeaderParams}}
-                    // Header parameters
                 {{#headerParams}}
                         std::string header_{{paramName}} = req->getHeader("{{baseName}}");
                     {{#isPrimitiveType}}
@@ -116,40 +108,39 @@
                     {{/isPrimitiveType}}
                 {{/headerParams}}
             {{/hasHeaderParams}}
-                /* ---------- call service ---------- */
-            {{operationId}}Response response;
+
+                /* -------- delegate to service -------- */
+            {{operationId}}Response respVariant;
                 service->{{vendorExtensions.operationIdSnakeCase}}(
-            {{#allParams}}{{#isHeaderParam}}header_{{paramName}}{{/isHeaderParam}}{{#isQueryParam}}query_{{paramName}}{{/isQueryParam}}{{#isPathParam}}path_{{paramName}}{{/isPathParam}}{{#isBodyParam}}{{paramName}}{{/isBodyParam}}{{^-last}}, {{/-last}}{{/allParams}}{{#hasParams}}{{^allParams.isEmpty}}, {{/allParams.isEmpty}}{{/hasParams}}response);
+            {{#allParams}}{{#isHeaderParam}}header_{{paramName}}{{/isHeaderParam}}{{#isQueryParam}}query_{{paramName}}{{/isQueryParam}}{{#isPathParam}}path_{{paramName}}{{/isPathParam}}{{#isBodyParam}}{{paramName}}{{/isBodyParam}}{{^-last}}, {{/-last}}{{/allParams}}
+                respVariant);
 
-                /* ---------- serialize & return ---------- */
-                // You can convert `response` (std::variant) to HttpResponse here.
-                // For now just return 501.
-                auto resp = drogon::HttpResponse::newHttpResponse("Not implemented");
-                resp->setStatusCode(drogon::k501NotImplemented);
-                callback(resp);
-
+                /* -------- serialize & return -------- */
+                auto resp = {{helpersNamespace}}::variantToHttp(respVariant);
+                cb(resp);
         {{/vendorExtensions.x-codegen-drogon-is-parsing-supported}}
+
         {{^vendorExtensions.x-codegen-drogon-is-parsing-supported}}
                 /* Fallback: give raw request to service */
-            {{operationId}}Response response;
-                service->{{vendorExtensions.operationIdSnakeCase}}(req, std::move(callback), response);
+            {{operationId}}Response respVariant;
+                service->{{vendorExtensions.operationIdSnakeCase}}(req, std::move(cb), respVariant);
         {{/vendorExtensions.x-codegen-drogon-is-parsing-supported}}
 
             } catch (const std::exception& e) {
             auto resp = drogon::HttpResponse::newHttpResponse(e.what());
             resp->setStatusCode(drogon::k500InternalServerError);
-            callback(resp);
+            cb(resp);
             }
             }
     {{/operation}}
 
         void {{classname}}::{{classnameSnakeLowerCase}}_default_handler(
-        const drogon::HttpRequestPtr&               /*req*/,
-        std::function<void (const drogon::HttpResponsePtr &)>&& callback)
+        const drogon::HttpRequestPtr& /*req*/,
+        std::function<void (const drogon::HttpResponsePtr &)>&& cb)
         {
         auto resp = drogon::HttpResponse::newHttpResponse("The requested method does not exist");
         resp->setStatusCode(drogon::k404NotFound);
-        callback(resp);
+        cb(resp);
         }
 
         } // namespace {{apiNamespace}}

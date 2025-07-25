@@ -9,7 +9,6 @@
 * https://openapi-generator.tech
 * Do not edit the class manually.
 */
-
     #include "UserApi.h"
     #include "Helpers.h"
     #include <json/json.h>
@@ -22,33 +21,36 @@
 
     const std::string UserApi::base = "/v2";
 
+    /* ----------------------------------------------------------------------
+    *  Generic helpers
+    * -------------------------------------------------------------------- */
     void UserApi::handleParsingException(
     const std::exception& ex,
-    std::function<void (const drogon::HttpResponsePtr &)>&& callback) const noexcept
+    std::function<void (const drogon::HttpResponsePtr &)>&& cb) const noexcept
         {
         auto [status, body] = handleParsingException(ex);
-        auto resp          = drogon::HttpResponse::newHttpResponse(body);
+        auto resp           = drogon::HttpResponse::newHttpResponse(body);
         resp->setStatusCode(status);
-        callback(resp);
+        cb(resp);
         }
 
         std::pair<drogon::HttpStatusCode, std::string>
     UserApi::handleParsingException(const std::exception& ex) const noexcept
         {
         try { throw; }
-        catch (Json::Exception&               e) { return {drogon::k400BadRequest, e.what()}; }
-        catch (ValidationException&           e) { return {drogon::k400BadRequest, e.what()}; }
-        catch (std::exception&                e) { return {drogon::k500InternalServerError, e.what()}; }
+        catch (Json::Exception&     e) { return {drogon::k400BadRequest, e.what()}; }
+        catch (ValidationException& e) { return {drogon::k400BadRequest, e.what()}; }
+        catch (std::exception&      e) { return {drogon::k500InternalServerError, e.what()}; }
         }
 
         void UserApi::handleOperationException(
         const std::exception& ex,
-        std::function<void (const drogon::HttpResponsePtr &)>&& callback) const noexcept
+        std::function<void (const drogon::HttpResponsePtr &)>&& cb) const noexcept
         {
         auto [status, body] = handleOperationException(ex);
-        auto resp          = drogon::HttpResponse::newHttpResponse(body);
+        auto resp           = drogon::HttpResponse::newHttpResponse(body);
         resp->setStatusCode(status);
-        callback(resp);
+        cb(resp);
         }
 
         std::pair<drogon::HttpStatusCode, std::string>
@@ -57,15 +59,16 @@
         return {drogon::k500InternalServerError, ex.what()};
         }
 
+        /* ----------------------------------------------------------------------
+        *  One method per operation
+        * -------------------------------------------------------------------- */
             /* ---------- createUser ---------- */
             void UserApi::create_user_handler(
             const drogon::HttpRequestPtr& req,
-            std::function<void (const drogon::HttpResponsePtr &)>&& callback)
+            std::function<void (const drogon::HttpResponsePtr &)>&& cb)
             {
             try {
-                /* --------‑‑‑ parameter extraction ‑‑‑--------- */
-
-                    // Body parameter
+                /* -------- parameter extraction -------- */
                         User user;
                             try {
                             Json::Value jsonBody;
@@ -75,39 +78,36 @@
                             from_json(jsonBody, user);
                         user.validate();
                             } catch (const std::exception& e) {
-                            handleParsingException(e, std::move(callback));
+                            handleParsingException(e, std::move(cb));
                             return;
                             }
 
 
-                /* ---------- call service ---------- */
-            createUserResponse response;
-                service->create_user(
-            user, response);
 
-                /* ---------- serialize & return ---------- */
-                // You can convert `response` (std::variant) to HttpResponse here.
-                // For now just return 501.
-                auto resp = drogon::HttpResponse::newHttpResponse("Not implemented");
-                resp->setStatusCode(drogon::k501NotImplemented);
-                callback(resp);
+                /* -------- delegate to service -------- */
+            createUserResponse respVariant;
+                service->create_user(
+            user
+                respVariant);
+
+                /* -------- serialize & return -------- */
+                auto resp = org::openapitools::server::helpers::variantToHttp(respVariant);
+                cb(resp);
 
 
             } catch (const std::exception& e) {
             auto resp = drogon::HttpResponse::newHttpResponse(e.what());
             resp->setStatusCode(drogon::k500InternalServerError);
-            callback(resp);
+            cb(resp);
             }
             }
             /* ---------- createUsersWithArrayInput ---------- */
             void UserApi::create_users_with_array_input_handler(
             const drogon::HttpRequestPtr& req,
-            std::function<void (const drogon::HttpResponsePtr &)>&& callback)
+            std::function<void (const drogon::HttpResponsePtr &)>&& cb)
             {
             try {
-                /* --------‑‑‑ parameter extraction ‑‑‑--------- */
-
-                    // Body parameter
+                /* -------- parameter extraction -------- */
                         User user;
                             try {
                             Json::Value jsonBody;
@@ -117,39 +117,36 @@
                             from_json(jsonBody, user);
                         user.validate();
                             } catch (const std::exception& e) {
-                            handleParsingException(e, std::move(callback));
+                            handleParsingException(e, std::move(cb));
                             return;
                             }
 
 
-                /* ---------- call service ---------- */
-            createUsersWithArrayInputResponse response;
-                service->create_users_with_array_input(
-            user, response);
 
-                /* ---------- serialize & return ---------- */
-                // You can convert `response` (std::variant) to HttpResponse here.
-                // For now just return 501.
-                auto resp = drogon::HttpResponse::newHttpResponse("Not implemented");
-                resp->setStatusCode(drogon::k501NotImplemented);
-                callback(resp);
+                /* -------- delegate to service -------- */
+            createUsersWithArrayInputResponse respVariant;
+                service->create_users_with_array_input(
+            user
+                respVariant);
+
+                /* -------- serialize & return -------- */
+                auto resp = org::openapitools::server::helpers::variantToHttp(respVariant);
+                cb(resp);
 
 
             } catch (const std::exception& e) {
             auto resp = drogon::HttpResponse::newHttpResponse(e.what());
             resp->setStatusCode(drogon::k500InternalServerError);
-            callback(resp);
+            cb(resp);
             }
             }
             /* ---------- createUsersWithListInput ---------- */
             void UserApi::create_users_with_list_input_handler(
             const drogon::HttpRequestPtr& req,
-            std::function<void (const drogon::HttpResponsePtr &)>&& callback)
+            std::function<void (const drogon::HttpResponsePtr &)>&& cb)
             {
             try {
-                /* --------‑‑‑ parameter extraction ‑‑‑--------- */
-
-                    // Body parameter
+                /* -------- parameter extraction -------- */
                         User user;
                             try {
                             Json::Value jsonBody;
@@ -159,107 +156,96 @@
                             from_json(jsonBody, user);
                         user.validate();
                             } catch (const std::exception& e) {
-                            handleParsingException(e, std::move(callback));
+                            handleParsingException(e, std::move(cb));
                             return;
                             }
 
 
-                /* ---------- call service ---------- */
-            createUsersWithListInputResponse response;
-                service->create_users_with_list_input(
-            user, response);
 
-                /* ---------- serialize & return ---------- */
-                // You can convert `response` (std::variant) to HttpResponse here.
-                // For now just return 501.
-                auto resp = drogon::HttpResponse::newHttpResponse("Not implemented");
-                resp->setStatusCode(drogon::k501NotImplemented);
-                callback(resp);
+                /* -------- delegate to service -------- */
+            createUsersWithListInputResponse respVariant;
+                service->create_users_with_list_input(
+            user
+                respVariant);
+
+                /* -------- serialize & return -------- */
+                auto resp = org::openapitools::server::helpers::variantToHttp(respVariant);
+                cb(resp);
 
 
             } catch (const std::exception& e) {
             auto resp = drogon::HttpResponse::newHttpResponse(e.what());
             resp->setStatusCode(drogon::k500InternalServerError);
-            callback(resp);
+            cb(resp);
             }
             }
             /* ---------- deleteUser ---------- */
             void UserApi::delete_user_handler(
             const drogon::HttpRequestPtr& req,
-            std::function<void (const drogon::HttpResponsePtr &)>&& callback,
+            std::function<void (const drogon::HttpResponsePtr &)>&& cb,
             const std::string& path_username)
             {
             try {
-                /* --------‑‑‑ parameter extraction ‑‑‑--------- */
-                    // Path parameters
-                        // auto username = /* extract from route */ ;
+                /* -------- parameter extraction -------- */
 
 
 
-                /* ---------- call service ---------- */
-            deleteUserResponse response;
+                /* -------- delegate to service -------- */
+            deleteUserResponse respVariant;
                 service->delete_user(
-            path_username, response);
+            path_username
+                respVariant);
 
-                /* ---------- serialize & return ---------- */
-                // You can convert `response` (std::variant) to HttpResponse here.
-                // For now just return 501.
-                auto resp = drogon::HttpResponse::newHttpResponse("Not implemented");
-                resp->setStatusCode(drogon::k501NotImplemented);
-                callback(resp);
+                /* -------- serialize & return -------- */
+                auto resp = org::openapitools::server::helpers::variantToHttp(respVariant);
+                cb(resp);
 
 
             } catch (const std::exception& e) {
             auto resp = drogon::HttpResponse::newHttpResponse(e.what());
             resp->setStatusCode(drogon::k500InternalServerError);
-            callback(resp);
+            cb(resp);
             }
             }
             /* ---------- getUserByName ---------- */
             void UserApi::get_user_by_name_handler(
             const drogon::HttpRequestPtr& req,
-            std::function<void (const drogon::HttpResponsePtr &)>&& callback,
+            std::function<void (const drogon::HttpResponsePtr &)>&& cb,
             const std::string& path_username)
             {
             try {
-                /* --------‑‑‑ parameter extraction ‑‑‑--------- */
-                    // Path parameters
-                        // auto username = /* extract from route */ ;
+                /* -------- parameter extraction -------- */
 
 
 
-                /* ---------- call service ---------- */
-            getUserByNameResponse response;
+                /* -------- delegate to service -------- */
+            getUserByNameResponse respVariant;
                 service->get_user_by_name(
-            path_username, response);
+            path_username
+                respVariant);
 
-                /* ---------- serialize & return ---------- */
-                // You can convert `response` (std::variant) to HttpResponse here.
-                // For now just return 501.
-                auto resp = drogon::HttpResponse::newHttpResponse("Not implemented");
-                resp->setStatusCode(drogon::k501NotImplemented);
-                callback(resp);
+                /* -------- serialize & return -------- */
+                auto resp = org::openapitools::server::helpers::variantToHttp(respVariant);
+                cb(resp);
 
 
             } catch (const std::exception& e) {
             auto resp = drogon::HttpResponse::newHttpResponse(e.what());
             resp->setStatusCode(drogon::k500InternalServerError);
-            callback(resp);
+            cb(resp);
             }
             }
             /* ---------- loginUser ---------- */
             void UserApi::login_user_handler(
             const drogon::HttpRequestPtr& req,
-            std::function<void (const drogon::HttpResponsePtr &)>&& callback,
+            std::function<void (const drogon::HttpResponsePtr &)>&& cb,
             const std::optional<std::string>& query_username,
             const std::optional<std::string>& query_password)
             {
             try {
-                /* --------‑‑‑ parameter extraction ‑‑‑--------- */
+                /* -------- parameter extraction -------- */
 
-
-                    // Query parameters
-                        {   /* username */
+                        {
                         auto _q = req->getParameter("username");
                         std::optional<std::string> username;
                         if (!_q.empty()) {
@@ -268,7 +254,7 @@
                     username = tmp;
                         }
                         }
-                        {   /* password */
+                        {
                         auto _q = req->getParameter("password");
                         std::optional<std::string> password;
                         if (!_q.empty()) {
@@ -278,66 +264,59 @@
                         }
                         }
 
-                /* ---------- call service ---------- */
-            loginUserResponse response;
-                service->login_user(
-            query_username, query_password, response);
 
-                /* ---------- serialize & return ---------- */
-                // You can convert `response` (std::variant) to HttpResponse here.
-                // For now just return 501.
-                auto resp = drogon::HttpResponse::newHttpResponse("Not implemented");
-                resp->setStatusCode(drogon::k501NotImplemented);
-                callback(resp);
+                /* -------- delegate to service -------- */
+            loginUserResponse respVariant;
+                service->login_user(
+            query_username, query_password
+                respVariant);
+
+                /* -------- serialize & return -------- */
+                auto resp = org::openapitools::server::helpers::variantToHttp(respVariant);
+                cb(resp);
 
 
             } catch (const std::exception& e) {
             auto resp = drogon::HttpResponse::newHttpResponse(e.what());
             resp->setStatusCode(drogon::k500InternalServerError);
-            callback(resp);
+            cb(resp);
             }
             }
             /* ---------- logoutUser ---------- */
             void UserApi::logout_user_handler(
             const drogon::HttpRequestPtr& req,
-            std::function<void (const drogon::HttpResponsePtr &)>&& callback)
+            std::function<void (const drogon::HttpResponsePtr &)>&& cb)
             {
             try {
-                /* --------‑‑‑ parameter extraction ‑‑‑--------- */
+                /* -------- parameter extraction -------- */
 
 
 
-                /* ---------- call service ---------- */
-            logoutUserResponse response;
+                /* -------- delegate to service -------- */
+            logoutUserResponse respVariant;
                 service->logout_user(
-            response);
+            
+                respVariant);
 
-                /* ---------- serialize & return ---------- */
-                // You can convert `response` (std::variant) to HttpResponse here.
-                // For now just return 501.
-                auto resp = drogon::HttpResponse::newHttpResponse("Not implemented");
-                resp->setStatusCode(drogon::k501NotImplemented);
-                callback(resp);
+                /* -------- serialize & return -------- */
+                auto resp = org::openapitools::server::helpers::variantToHttp(respVariant);
+                cb(resp);
 
 
             } catch (const std::exception& e) {
             auto resp = drogon::HttpResponse::newHttpResponse(e.what());
             resp->setStatusCode(drogon::k500InternalServerError);
-            callback(resp);
+            cb(resp);
             }
             }
             /* ---------- updateUser ---------- */
             void UserApi::update_user_handler(
             const drogon::HttpRequestPtr& req,
-            std::function<void (const drogon::HttpResponsePtr &)>&& callback,
+            std::function<void (const drogon::HttpResponsePtr &)>&& cb,
             const std::string& path_username)
             {
             try {
-                /* --------‑‑‑ parameter extraction ‑‑‑--------- */
-                    // Path parameters
-                        // auto username = /* extract from route */ ;
-
-                    // Body parameter
+                /* -------- parameter extraction -------- */
                         User user;
                             try {
                             Json::Value jsonBody;
@@ -347,38 +326,37 @@
                             from_json(jsonBody, user);
                         user.validate();
                             } catch (const std::exception& e) {
-                            handleParsingException(e, std::move(callback));
+                            handleParsingException(e, std::move(cb));
                             return;
                             }
 
 
-                /* ---------- call service ---------- */
-            updateUserResponse response;
-                service->update_user(
-            path_username, user, response);
 
-                /* ---------- serialize & return ---------- */
-                // You can convert `response` (std::variant) to HttpResponse here.
-                // For now just return 501.
-                auto resp = drogon::HttpResponse::newHttpResponse("Not implemented");
-                resp->setStatusCode(drogon::k501NotImplemented);
-                callback(resp);
+                /* -------- delegate to service -------- */
+            updateUserResponse respVariant;
+                service->update_user(
+            path_username, user
+                respVariant);
+
+                /* -------- serialize & return -------- */
+                auto resp = org::openapitools::server::helpers::variantToHttp(respVariant);
+                cb(resp);
 
 
             } catch (const std::exception& e) {
             auto resp = drogon::HttpResponse::newHttpResponse(e.what());
             resp->setStatusCode(drogon::k500InternalServerError);
-            callback(resp);
+            cb(resp);
             }
             }
 
         void UserApi::user_api_default_handler(
-        const drogon::HttpRequestPtr&               /*req*/,
-        std::function<void (const drogon::HttpResponsePtr &)>&& callback)
+        const drogon::HttpRequestPtr& /*req*/,
+        std::function<void (const drogon::HttpResponsePtr &)>&& cb)
         {
         auto resp = drogon::HttpResponse::newHttpResponse("The requested method does not exist");
         resp->setStatusCode(drogon::k404NotFound);
-        callback(resp);
+        cb(resp);
         }
 
         } // namespace org::openapitools::server::api

@@ -9,7 +9,6 @@
 * https://openapi-generator.tech
 * Do not edit the class manually.
 */
-
     #include "PetApi.h"
     #include "Helpers.h"
     #include <json/json.h>
@@ -22,33 +21,36 @@
 
     const std::string PetApi::base = "/v2";
 
+    /* ----------------------------------------------------------------------
+    *  Generic helpers
+    * -------------------------------------------------------------------- */
     void PetApi::handleParsingException(
     const std::exception& ex,
-    std::function<void (const drogon::HttpResponsePtr &)>&& callback) const noexcept
+    std::function<void (const drogon::HttpResponsePtr &)>&& cb) const noexcept
         {
         auto [status, body] = handleParsingException(ex);
-        auto resp          = drogon::HttpResponse::newHttpResponse(body);
+        auto resp           = drogon::HttpResponse::newHttpResponse(body);
         resp->setStatusCode(status);
-        callback(resp);
+        cb(resp);
         }
 
         std::pair<drogon::HttpStatusCode, std::string>
     PetApi::handleParsingException(const std::exception& ex) const noexcept
         {
         try { throw; }
-        catch (Json::Exception&               e) { return {drogon::k400BadRequest, e.what()}; }
-        catch (ValidationException&           e) { return {drogon::k400BadRequest, e.what()}; }
-        catch (std::exception&                e) { return {drogon::k500InternalServerError, e.what()}; }
+        catch (Json::Exception&     e) { return {drogon::k400BadRequest, e.what()}; }
+        catch (ValidationException& e) { return {drogon::k400BadRequest, e.what()}; }
+        catch (std::exception&      e) { return {drogon::k500InternalServerError, e.what()}; }
         }
 
         void PetApi::handleOperationException(
         const std::exception& ex,
-        std::function<void (const drogon::HttpResponsePtr &)>&& callback) const noexcept
+        std::function<void (const drogon::HttpResponsePtr &)>&& cb) const noexcept
         {
         auto [status, body] = handleOperationException(ex);
-        auto resp          = drogon::HttpResponse::newHttpResponse(body);
+        auto resp           = drogon::HttpResponse::newHttpResponse(body);
         resp->setStatusCode(status);
-        callback(resp);
+        cb(resp);
         }
 
         std::pair<drogon::HttpStatusCode, std::string>
@@ -57,15 +59,16 @@
         return {drogon::k500InternalServerError, ex.what()};
         }
 
+        /* ----------------------------------------------------------------------
+        *  One method per operation
+        * -------------------------------------------------------------------- */
             /* ---------- addPet ---------- */
             void PetApi::add_pet_handler(
             const drogon::HttpRequestPtr& req,
-            std::function<void (const drogon::HttpResponsePtr &)>&& callback)
+            std::function<void (const drogon::HttpResponsePtr &)>&& cb)
             {
             try {
-                /* --------‑‑‑ parameter extraction ‑‑‑--------- */
-
-                    // Body parameter
+                /* -------- parameter extraction -------- */
                         Pet pet;
                             try {
                             Json::Value jsonBody;
@@ -75,80 +78,72 @@
                             from_json(jsonBody, pet);
                         pet.validate();
                             } catch (const std::exception& e) {
-                            handleParsingException(e, std::move(callback));
+                            handleParsingException(e, std::move(cb));
                             return;
                             }
 
 
-                /* ---------- call service ---------- */
-            addPetResponse response;
-                service->add_pet(
-            pet, response);
 
-                /* ---------- serialize & return ---------- */
-                // You can convert `response` (std::variant) to HttpResponse here.
-                // For now just return 501.
-                auto resp = drogon::HttpResponse::newHttpResponse("Not implemented");
-                resp->setStatusCode(drogon::k501NotImplemented);
-                callback(resp);
+                /* -------- delegate to service -------- */
+            addPetResponse respVariant;
+                service->add_pet(
+            pet
+                respVariant);
+
+                /* -------- serialize & return -------- */
+                auto resp = org::openapitools::server::helpers::variantToHttp(respVariant);
+                cb(resp);
 
 
             } catch (const std::exception& e) {
             auto resp = drogon::HttpResponse::newHttpResponse(e.what());
             resp->setStatusCode(drogon::k500InternalServerError);
-            callback(resp);
+            cb(resp);
             }
             }
             /* ---------- deletePet ---------- */
             void PetApi::delete_pet_handler(
             const drogon::HttpRequestPtr& req,
-            std::function<void (const drogon::HttpResponsePtr &)>&& callback,
+            std::function<void (const drogon::HttpResponsePtr &)>&& cb,
             const std::int64_t& path_petId)
             {
             try {
-                /* --------‑‑‑ parameter extraction ‑‑‑--------- */
-                    // Path parameters
-                        // auto petId = /* extract from route */ ;
+                /* -------- parameter extraction -------- */
 
 
-
-                    // Header parameters
                         std::string header_apiKey = req->getHeader("api_key");
                         
                         
                         
                           std::string  apiKey = header_apiKey; 
-                /* ---------- call service ---------- */
-            deletePetResponse response;
-                service->delete_pet(
-            path_petId, header_apiKey, response);
 
-                /* ---------- serialize & return ---------- */
-                // You can convert `response` (std::variant) to HttpResponse here.
-                // For now just return 501.
-                auto resp = drogon::HttpResponse::newHttpResponse("Not implemented");
-                resp->setStatusCode(drogon::k501NotImplemented);
-                callback(resp);
+                /* -------- delegate to service -------- */
+            deletePetResponse respVariant;
+                service->delete_pet(
+            path_petId, header_apiKey
+                respVariant);
+
+                /* -------- serialize & return -------- */
+                auto resp = org::openapitools::server::helpers::variantToHttp(respVariant);
+                cb(resp);
 
 
             } catch (const std::exception& e) {
             auto resp = drogon::HttpResponse::newHttpResponse(e.what());
             resp->setStatusCode(drogon::k500InternalServerError);
-            callback(resp);
+            cb(resp);
             }
             }
             /* ---------- findPetsByStatus ---------- */
             void PetApi::find_pets_by_status_handler(
             const drogon::HttpRequestPtr& req,
-            std::function<void (const drogon::HttpResponsePtr &)>&& callback,
+            std::function<void (const drogon::HttpResponsePtr &)>&& cb,
             const std::optional<std::vector<std::string>>& query_status)
             {
             try {
-                /* --------‑‑‑ parameter extraction ‑‑‑--------- */
+                /* -------- parameter extraction -------- */
 
-
-                    // Query parameters
-                        {   /* status */
+                        {
                         auto _q = req->getParameter("status");
                         std::optional<std::vector<std::string>> status;
                         if (!_q.empty()) {
@@ -158,37 +153,34 @@
                         }
                         }
 
-                /* ---------- call service ---------- */
-            findPetsByStatusResponse response;
-                service->find_pets_by_status(
-            query_status, response);
 
-                /* ---------- serialize & return ---------- */
-                // You can convert `response` (std::variant) to HttpResponse here.
-                // For now just return 501.
-                auto resp = drogon::HttpResponse::newHttpResponse("Not implemented");
-                resp->setStatusCode(drogon::k501NotImplemented);
-                callback(resp);
+                /* -------- delegate to service -------- */
+            findPetsByStatusResponse respVariant;
+                service->find_pets_by_status(
+            query_status
+                respVariant);
+
+                /* -------- serialize & return -------- */
+                auto resp = org::openapitools::server::helpers::variantToHttp(respVariant);
+                cb(resp);
 
 
             } catch (const std::exception& e) {
             auto resp = drogon::HttpResponse::newHttpResponse(e.what());
             resp->setStatusCode(drogon::k500InternalServerError);
-            callback(resp);
+            cb(resp);
             }
             }
             /* ---------- findPetsByTags ---------- */
             void PetApi::find_pets_by_tags_handler(
             const drogon::HttpRequestPtr& req,
-            std::function<void (const drogon::HttpResponsePtr &)>&& callback,
+            std::function<void (const drogon::HttpResponsePtr &)>&& cb,
             const std::optional<std::vector<std::string>>& query_tags)
             {
             try {
-                /* --------‑‑‑ parameter extraction ‑‑‑--------- */
+                /* -------- parameter extraction -------- */
 
-
-                    // Query parameters
-                        {   /* tags */
+                        {
                         auto _q = req->getParameter("tags");
                         std::optional<std::vector<std::string>> tags;
                         if (!_q.empty()) {
@@ -198,66 +190,59 @@
                         }
                         }
 
-                /* ---------- call service ---------- */
-            findPetsByTagsResponse response;
-                service->find_pets_by_tags(
-            query_tags, response);
 
-                /* ---------- serialize & return ---------- */
-                // You can convert `response` (std::variant) to HttpResponse here.
-                // For now just return 501.
-                auto resp = drogon::HttpResponse::newHttpResponse("Not implemented");
-                resp->setStatusCode(drogon::k501NotImplemented);
-                callback(resp);
+                /* -------- delegate to service -------- */
+            findPetsByTagsResponse respVariant;
+                service->find_pets_by_tags(
+            query_tags
+                respVariant);
+
+                /* -------- serialize & return -------- */
+                auto resp = org::openapitools::server::helpers::variantToHttp(respVariant);
+                cb(resp);
 
 
             } catch (const std::exception& e) {
             auto resp = drogon::HttpResponse::newHttpResponse(e.what());
             resp->setStatusCode(drogon::k500InternalServerError);
-            callback(resp);
+            cb(resp);
             }
             }
             /* ---------- getPetById ---------- */
             void PetApi::get_pet_by_id_handler(
             const drogon::HttpRequestPtr& req,
-            std::function<void (const drogon::HttpResponsePtr &)>&& callback,
+            std::function<void (const drogon::HttpResponsePtr &)>&& cb,
             const std::int64_t& path_petId)
             {
             try {
-                /* --------‑‑‑ parameter extraction ‑‑‑--------- */
-                    // Path parameters
-                        // auto petId = /* extract from route */ ;
+                /* -------- parameter extraction -------- */
 
 
 
-                /* ---------- call service ---------- */
-            getPetByIdResponse response;
+                /* -------- delegate to service -------- */
+            getPetByIdResponse respVariant;
                 service->get_pet_by_id(
-            path_petId, response);
+            path_petId
+                respVariant);
 
-                /* ---------- serialize & return ---------- */
-                // You can convert `response` (std::variant) to HttpResponse here.
-                // For now just return 501.
-                auto resp = drogon::HttpResponse::newHttpResponse("Not implemented");
-                resp->setStatusCode(drogon::k501NotImplemented);
-                callback(resp);
+                /* -------- serialize & return -------- */
+                auto resp = org::openapitools::server::helpers::variantToHttp(respVariant);
+                cb(resp);
 
 
             } catch (const std::exception& e) {
             auto resp = drogon::HttpResponse::newHttpResponse(e.what());
             resp->setStatusCode(drogon::k500InternalServerError);
-            callback(resp);
+            cb(resp);
             }
             }
             /* ---------- updatePet ---------- */
             void PetApi::update_pet_handler(
             const drogon::HttpRequestPtr& req,
-            std::function<void (const drogon::HttpResponsePtr &)>&& callback)
+            std::function<void (const drogon::HttpResponsePtr &)>&& cb)
             {
             try {
-                /* --------‑‑‑ parameter extraction ‑‑‑--------- */
-
-                    // Body parameter
+                /* -------- parameter extraction -------- */
                         Pet pet;
                             try {
                             Json::Value jsonBody;
@@ -267,76 +252,77 @@
                             from_json(jsonBody, pet);
                         pet.validate();
                             } catch (const std::exception& e) {
-                            handleParsingException(e, std::move(callback));
+                            handleParsingException(e, std::move(cb));
                             return;
                             }
 
 
-                /* ---------- call service ---------- */
-            updatePetResponse response;
-                service->update_pet(
-            pet, response);
 
-                /* ---------- serialize & return ---------- */
-                // You can convert `response` (std::variant) to HttpResponse here.
-                // For now just return 501.
-                auto resp = drogon::HttpResponse::newHttpResponse("Not implemented");
-                resp->setStatusCode(drogon::k501NotImplemented);
-                callback(resp);
+                /* -------- delegate to service -------- */
+            updatePetResponse respVariant;
+                service->update_pet(
+            pet
+                respVariant);
+
+                /* -------- serialize & return -------- */
+                auto resp = org::openapitools::server::helpers::variantToHttp(respVariant);
+                cb(resp);
 
 
             } catch (const std::exception& e) {
             auto resp = drogon::HttpResponse::newHttpResponse(e.what());
             resp->setStatusCode(drogon::k500InternalServerError);
-            callback(resp);
+            cb(resp);
             }
             }
             /* ---------- updatePetWithForm ---------- */
             void PetApi::update_pet_with_form_handler(
             const drogon::HttpRequestPtr& req,
-            std::function<void (const drogon::HttpResponsePtr &)>&& callback,
+            std::function<void (const drogon::HttpResponsePtr &)>&& cb,
             const std::int64_t& path_petId,
             const std::string& name,
             const std::string& status)
             {
             try {
+
                 /* Fallback: give raw request to service */
-            updatePetWithFormResponse response;
-                service->update_pet_with_form(req, std::move(callback), response);
+            updatePetWithFormResponse respVariant;
+                service->update_pet_with_form(req, std::move(cb), respVariant);
 
             } catch (const std::exception& e) {
             auto resp = drogon::HttpResponse::newHttpResponse(e.what());
             resp->setStatusCode(drogon::k500InternalServerError);
-            callback(resp);
+            cb(resp);
             }
             }
             /* ---------- uploadFile ---------- */
             void PetApi::upload_file_handler(
             const drogon::HttpRequestPtr& req,
-            std::function<void (const drogon::HttpResponsePtr &)>&& callback,
+            std::function<void (const drogon::HttpResponsePtr &)>&& cb,
             const std::int64_t& path_petId,
             const std::string& additionalMetadata,
             const std::string& file)
             {
             try {
+
                 /* Fallback: give raw request to service */
-            uploadFileResponse response;
-                service->upload_file(req, std::move(callback), response);
+            uploadFileResponse respVariant;
+                service->upload_file(req, std::move(cb), respVariant);
 
             } catch (const std::exception& e) {
             auto resp = drogon::HttpResponse::newHttpResponse(e.what());
             resp->setStatusCode(drogon::k500InternalServerError);
-            callback(resp);
+            cb(resp);
             }
             }
 
         void PetApi::pet_api_default_handler(
-        const drogon::HttpRequestPtr&               /*req*/,
-        std::function<void (const drogon::HttpResponsePtr &)>&& callback)
+        const drogon::HttpRequestPtr& /*req*/,
+        std::function<void (const drogon::HttpResponsePtr &)>&& cb)
         {
         auto resp = drogon::HttpResponse::newHttpResponse("The requested method does not exist");
         resp->setStatusCode(drogon::k404NotFound);
-        callback(resp);
+        cb(resp);
         }
 
         } // namespace org::openapitools::server::api

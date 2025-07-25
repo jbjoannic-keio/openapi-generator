@@ -12,7 +12,7 @@
 /*
  * Helpers.h
  *
- * This is the helper class for models and primitives
+ * Generic helper utilities for generated Dro­­gon projects.
  */
 
 #ifndef Helpers_H_
@@ -25,122 +25,180 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include <variant>
+#include <type_traits>
+
+/*  Drogon & JSON ----------------------------------------------------- */
+#include <drogon/HttpTypes.h>
+#include <drogon/HttpResponse.h>
+#include <json/json.h>
 
 namespace org::openapitools::server::helpers
 {
 
-    class ValidationException : public std::runtime_error
+/* =======================================================================
+ *  1.  Validation & utility helpers  (UNCHANGED)
+ * ===================================================================== */
+class ValidationException : public std::runtime_error
+{
+public:
+    explicit ValidationException(const std::string& what)
+        : std::runtime_error(what)
+    { }
+    ~ValidationException() override = default;
+};
+
+/// Validate a string against the full‑date definition of RFC‑3339§5.6.
+bool validateRfc3339_date(const std::string& str);
+
+/// Validate a string against the date‑time definition of RFC‑3339§5.6.
+bool validateRfc3339_date_time(const std::string& str);
+
+namespace sfinae_helpers
+{
+    struct NoType {};
+    template <typename T1, typename T2> NoType operator==(const T1&, const T2&);
+
+    template <typename T1, typename T2> class EqualsOperatorAvailable
     {
     public:
-        explicit ValidationException(const std::string& what)
-            : std::runtime_error(what)
-        { }
-        ~ValidationException() override = default;
-    };
-
-    /// <summary>
-    /// Validate a string against the full-date definition of RFC 3339, section 5.6.
-    /// </summary>
-    bool validateRfc3339_date(const std::string& str);
-
-    /// <summary>
-    /// Validate a string against the date-time definition of RFC 3339, section 5.6.
-    /// </summary>
-    bool validateRfc3339_date_time(const std::string& str);
-
-    namespace sfinae_helpers
-    {
-        struct NoType {};
-        template <typename T1, typename T2> NoType operator==(const T1&, const T2&);
-
-        template <typename T1, typename T2> class EqualsOperatorAvailable
+        enum
         {
-        public:
-            enum
-            {
-                value = !std::is_same< decltype(std::declval<T1>() == std::declval<T2>()), NoType >::value
-            };
+            value = !std::is_same<
+                        decltype(std::declval<T1>() == std::declval<T2>()),
+                        NoType>::value
         };
-    } // namespace sfinae_helpers
+    };
+} // namespace sfinae_helpers
 
-
-    /// <summary>
-    /// Determine if the given vector<T> only has unique elements. T must provide the == operator.
-    /// </summary>
-    template <typename T>
-    bool hasOnlyUniqueItems(const std::vector<T>& vec)
-    {
-        static_assert(sfinae_helpers::EqualsOperatorAvailable<T, T>::value,
-                      "hasOnlyUniqueItems<T> cannot be called, passed template type does not provide == operator.");
-        if (vec.size() <= 1)
-        {
-            return true;
-        }
-        // Compare every element of vec to every other element of vec.
-        // This isn't an elegant way to do this, since it's O(n^2),
-        // but it's the best solution working only with the == operator.
-        // This could be greatly improved if our models provided a valid hash
-        // and/or the < operator
-        for (size_t i = 0; i < vec.size() - 1; i++)
-        {
-            for (size_t j = i + 1; j < vec.size(); j++)
-            {
-                if (vec[i] == vec[j])
-                {
-                    return false;
-                }
-            }
-        }
+/// Determine if a vector contains only unique elements (requires==).
+template <typename T>
+bool hasOnlyUniqueItems(const std::vector<T>& vec)
+{
+    static_assert(sfinae_helpers::EqualsOperatorAvailable<T, T>::value,
+                  "hasOnlyUniqueItems<T> requires operator==.");
+    if (vec.size() <= 1)
         return true;
-    }
 
-    /// <summary>
-    /// Determine if the given set<T> only has unique elements.
-    /// </summary>
-    template <typename T>
-    bool hasOnlyUniqueItems(const std::set<T>&)
+    for (size_t i = 0; i < vec.size() - 1; ++i)
+        for (size_t j = i + 1; j < vec.size(); ++j)
+            if (vec[i] == vec[j])
+                return false;
+
+    return true;
+}
+
+/// Variant for std::set (always unique by definition).
+template <typename T>
+bool hasOnlyUniqueItems(const std::set<T>&)
+{
+    return true;
+}
+
+/* ----- string‑conversion helpers (unchanged) ------------------------- */
+std::string toStringValue(const std::string &value);
+std::string toStringValue(const int32_t value);
+std::string toStringValue(const int64_t value);
+std::string toStringValue(const bool    value);
+std::string toStringValue(const float   value);
+std::string toStringValue(const double  value);
+
+bool fromStringValue(const std::string &inStr, std::string &value);
+bool fromStringValue(const std::string &inStr, int32_t    &value);
+bool fromStringValue(const std::string &inStr, int64_t    &value);
+bool fromStringValue(const std::string &inStr, bool       &value);
+bool fromStringValue(const std::string &inStr, float      &value);
+bool fromStringValue(const std::string &inStr, double     &value);
+
+template<typename T>
+bool fromStringValue(const std::vector<std::string> &inStr,
+                     std::vector<T> &value)
+{
+    try
     {
-        return true;
+        for (auto & item : inStr)
+        {
+            T tmp;
+            if (fromStringValue(item, tmp))
+                value.push_back(tmp);
+        }
     }
+    catch (...)
+    {
+        return false;
+    }
+    return !value.empty();
+}
 
-    std::string toStringValue(const std::string &value);
-    std::string toStringValue(const int32_t value);
-    std::string toStringValue(const int64_t value);
-    std::string toStringValue(const bool value);
-    std::string toStringValue(const float value);
-    std::string toStringValue(const double value);
+template<typename T>
+bool fromStringValue(const std::string &inStr,
+                     std::vector<T> &value,
+                     char separator = ',')
+{
+    std::vector<std::string> parts;
+    std::istringstream       ss(inStr);
+    std::string              s;
+    while (std::getline(ss, s, separator))
+        parts.push_back(s);
 
-    bool fromStringValue(const std::string &inStr, std::string &value);
-    bool fromStringValue(const std::string &inStr, int32_t &value);
-    bool fromStringValue(const std::string &inStr, int64_t &value);
-    bool fromStringValue(const std::string &inStr, bool &value);
-    bool fromStringValue(const std::string &inStr, float &value);
-    bool fromStringValue(const std::string &inStr, double &value);
+    return fromStringValue(parts, value);
+}
+
+/* =======================================================================
+ *  2.  NEW helper – convert Response variant → HttpResponsePtr
+ * ===================================================================== */
+
+namespace detail
+{
+    /* SFINAE detector: does T have a first_type member?  */
+    template<typename, typename = void>
+    struct has_first_type : std::false_type {};
     template<typename T>
-    bool fromStringValue(const std::vector<std::string> &inStr, std::vector<T> &value){
-        try{
-            for(auto & item : inStr){
-                T itemValue;
-                if(fromStringValue(item, itemValue)){
-                    value.push_back(itemValue);
-                }
-            }
+    struct has_first_type<T, std::void_t<typename T::first_type>> : std::true_type {};
+}
+
+/// Convert a generated `…Response` `std::variant` to a Drogon response.
+///
+/// Works for both alternatives emitted by the code‑generator:
+///   1. `std::integral_constant<drogon::HttpStatusCode, kXYZ>`
+///   2. `std::pair<std::integral_constant<Status>, Body>`
+template <typename Variant>
+drogon::HttpResponsePtr variantToHttp(const Variant &v)
+{
+    using dr = drogon;
+
+    return std::visit([](auto &&alt) -> dr::HttpResponsePtr
+    {
+        using Alt = std::decay_t<decltype(alt)>;
+        dr::HttpResponsePtr resp;
+
+        /* ------------------------------------------------------------
+         * 1. status‑only alternative
+         * ---------------------------------------------------------- */
+        if constexpr (!detail::has_first_type<Alt>::value)
+        {
+            /* alt is an integral_constant<Status>                     */
+            constexpr dr::HttpStatusCode code = Alt::value;
+            resp = dr::HttpResponse::newHttpResponse();
+            resp->setStatusCode(code);
+            return resp;
         }
-        catch(...){
-            return false;
+        /* ------------------------------------------------------------
+         * 2. <status, Body> alternative
+         * ---------------------------------------------------------- */
+        else
+        {
+            constexpr dr::HttpStatusCode code = Alt::first_type::value;
+            const auto &body = alt.second;
+
+            Json::Value j;
+            to_json(j, body);                    // ADL: model‑specific overload
+            resp = dr::HttpResponse::newHttpJsonResponse(j);
+            resp->setStatusCode(code);
+            return resp;
         }
-        return value.size() > 0;
-    }
-    template<typename T>
-    bool fromStringValue(const std::string &inStr, std::vector<T> &value, char separator = ','){
-        std::vector<std::string> inStrings;
-        std::istringstream f(inStr);
-        std::string s;
-        while (std::getline(f, s, separator)) {
-            inStrings.push_back(s);
-        }
-        return fromStringValue(inStrings, value);
-    }
+    }, v);
+}
 
 } // namespace org::openapitools::server::helpers
 
