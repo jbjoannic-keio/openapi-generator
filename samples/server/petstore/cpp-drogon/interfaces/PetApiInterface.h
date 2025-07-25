@@ -10,115 +10,190 @@
 * Do not edit the class manually.
 */
 /*
- * PetApi.h
+ * PetApiInterface.h
  *
  * 
  */
-
-#ifndef PetApi_INTERFACE_H_
-#define PetApi_INTERFACE_H_
-
+#ifndef PET_API_INTERFACE_H_
+#define PET_API_INTERFACE_H_
 
 
 #include <drogon/HttpTypes.h>
-
 #include <optional>
 #include <utility>
 #include <variant>
+#include <stdexcept>
+#include "ApiResponse.h"#include "Pet.h"#include <string>#include <vector>
 
-#include "ApiResponse.h"
-#include "Pet.h"
-#include <string>
-#include <vector>
-
-namespace org::openapitools::server::api
-{
+namespace org::openapitools::server::api {
 
 class  PetApiInterface {
 public:
     virtual ~PetApiInterface() = default;
 
+/* ---------- response variants ---------- */
+    using addPetResponse = std::variant<
+            
+        std::pair<std::integral_constant<drogon::HttpStatusCode,drogon::k200OK>,org::openapitools::server::model::Pet}>
+,
+            
+        std::pair<std::integral_constant<drogon::HttpStatusCode,drogon::k200OK>,org::openapitools::server::model::Pet}>
 
-    using addPetResponse = std::variant<std::pair<std::integral_constant<drogon::HttpStatusCode, drogon::k200OK>,org::openapitools::server::model::Pet>,std::pair<std::integral_constant<drogon::HttpStatusCode, drogon::k200OK>,org::openapitools::server::model::Pet>,std::integral_constant<drogon::HttpStatusCode, drogon::k405MethodNotAllowed>>;
-    using deletePetResponse = std::variant<std::integral_constant<drogon::HttpStatusCode, drogon::k400BadRequest>>;
-    using findPetsByStatusResponse = std::variant<std::pair<std::integral_constant<drogon::HttpStatusCode, drogon::k200OK>,std::vector<org::openapitools::server::model::Pet>>,std::pair<std::integral_constant<drogon::HttpStatusCode, drogon::k200OK>,std::vector<org::openapitools::server::model::Pet>>,std::integral_constant<drogon::HttpStatusCode, drogon::k400BadRequest>>;
-    using findPetsByTagsResponse = std::variant<std::pair<std::integral_constant<drogon::HttpStatusCode, drogon::k200OK>,std::vector<org::openapitools::server::model::Pet>>,std::pair<std::integral_constant<drogon::HttpStatusCode, drogon::k200OK>,std::vector<org::openapitools::server::model::Pet>>,std::integral_constant<drogon::HttpStatusCode, drogon::k400BadRequest>>;
-    using getPetByIdResponse = std::variant<std::pair<std::integral_constant<drogon::HttpStatusCode, drogon::k200OK>,org::openapitools::server::model::Pet>,std::pair<std::integral_constant<drogon::HttpStatusCode, drogon::k200OK>,org::openapitools::server::model::Pet>,std::integral_constant<drogon::HttpStatusCode, drogon::k400BadRequest>,std::integral_constant<drogon::HttpStatusCode, drogon::k404NotFound>>;
-    using updatePetResponse = std::variant<std::pair<std::integral_constant<drogon::HttpStatusCode, drogon::k200OK>,org::openapitools::server::model::Pet>,std::pair<std::integral_constant<drogon::HttpStatusCode, drogon::k200OK>,org::openapitools::server::model::Pet>,std::integral_constant<drogon::HttpStatusCode, drogon::k400BadRequest>,std::integral_constant<drogon::HttpStatusCode, drogon::k404NotFound>,std::integral_constant<drogon::HttpStatusCode, drogon::k405MethodNotAllowed>>;
-    using updatePetWithFormResponse = std::variant<std::integral_constant<drogon::HttpStatusCode, drogon::k405MethodNotAllowed>>;
-    using uploadFileResponse = std::variant<std::pair<std::integral_constant<drogon::HttpStatusCode, drogon::k200OK>,org::openapitools::server::model::ApiResponse>>;
+            
+            
+        std::integral_constant<drogon::HttpStatusCode,drogon::k405MethodNotAllowed>
+                
+            
+    >;
+    using deletePetResponse = std::variant<
+            
+        std::integral_constant<drogon::HttpStatusCode,drogon::k400BadRequest>
+                
+            
+    >;
+    using findPetsByStatusResponse = std::variant<
+            
+        std::pair<std::integral_constant<drogon::HttpStatusCode,drogon::k200OK>,std::vector<org::openapitools::server::model::Pet>}>
+,
+            
+        std::pair<std::integral_constant<drogon::HttpStatusCode,drogon::k200OK>,std::vector<org::openapitools::server::model::Pet>}>
 
+            
+            
+        std::integral_constant<drogon::HttpStatusCode,drogon::k400BadRequest>
+                
+            
+    >;
+    using findPetsByTagsResponse = std::variant<
+            
+        std::pair<std::integral_constant<drogon::HttpStatusCode,drogon::k200OK>,std::vector<org::openapitools::server::model::Pet>}>
+,
+            
+        std::pair<std::integral_constant<drogon::HttpStatusCode,drogon::k200OK>,std::vector<org::openapitools::server::model::Pet>}>
 
+            
+            
+        std::integral_constant<drogon::HttpStatusCode,drogon::k400BadRequest>
+                
+            
+    >;
+    using getPetByIdResponse = std::variant<
+            
+        std::pair<std::integral_constant<drogon::HttpStatusCode,drogon::k200OK>,org::openapitools::server::model::Pet}>
+,
+            
+        std::pair<std::integral_constant<drogon::HttpStatusCode,drogon::k200OK>,org::openapitools::server::model::Pet}>
 
-    /// <summary>
-    /// Add a new pet to the store
-    /// </summary>
-    /// <remarks>
-    /// 
-    /// </remarks>
+            
+            
+        std::integral_constant<drogon::HttpStatusCode,drogon::k400BadRequest>
+                
+            
+            
+        std::integral_constant<drogon::HttpStatusCode,drogon::k404NotFound>
+                
+            
+    >;
+    using updatePetResponse = std::variant<
+            
+        std::pair<std::integral_constant<drogon::HttpStatusCode,drogon::k200OK>,org::openapitools::server::model::Pet}>
+,
+            
+        std::pair<std::integral_constant<drogon::HttpStatusCode,drogon::k200OK>,org::openapitools::server::model::Pet}>
+
+            
+            
+        std::integral_constant<drogon::HttpStatusCode,drogon::k400BadRequest>
+                
+            
+            
+        std::integral_constant<drogon::HttpStatusCode,drogon::k404NotFound>
+                
+            
+            
+        std::integral_constant<drogon::HttpStatusCode,drogon::k405MethodNotAllowed>
+                
+            
+    >;
+    using updatePetWithFormResponse = std::variant<
+            
+        std::integral_constant<drogon::HttpStatusCode,drogon::k405MethodNotAllowed>
+                
+            
+    >;
+    using uploadFileResponse = std::variant<
+            
+        std::pair<std::integral_constant<drogon::HttpStatusCode,drogon::k200OK>,org::openapitools::server::model::ApiResponse}>
+
+            
+    >;
+
+/* ---------- abstract operations ---------- */
+    /// <summary>Add a new pet to the store</summary>
+    /// <remarks></remarks>
     /// <param name="pet">Pet object that needs to be added to the store</param>
-    virtual void (const org::openapitools::server::model::Pet &pet, addPetResponse &response) = 0;
-    /// <summary>
-    /// Deletes a pet
-    /// </summary>
-    /// <remarks>
-    /// 
-    /// </remarks>
-    /// <param name="path_petId">Pet id to delete</param>
-    /// <param name="header_apiKey"> (optional, default to &quot;&quot;)</param>
-    virtual void (const std::int64_t &path_petId, const std::string &header_apiKey, deletePetResponse &response) = 0;
-    /// <summary>
-    /// Finds Pets by status
-    /// </summary>
-    /// <remarks>
-    /// Multiple status values can be provided with comma separated strings
-    /// </remarks>
+    virtual void add_pet(
+        const org::openapitools::server::model::Pet& pet, 
+        addPetResponse& response) = 0;
+
+
+    /// <summary>Deletes a pet</summary>
+    /// <remarks></remarks>
+    /// <param name="path_petId">Pet id to delete</param>/// <param name="header_apiKey"> (optional, default &quot;&quot;)</param>
+    virtual void delete_pet(
+        const std::int64_t& path_petId,         const std::string& header_apiKey, 
+        deletePetResponse& response) = 0;
+
+
+    /// <summary>Finds Pets by status</summary>
+    /// <remarks>Multiple status values can be provided with comma separated strings</remarks>
     /// <param name="query_status">Status values that need to be considered for filter</param>
-    virtual void (const std::optional<std::vector<std::string>> &query_status, findPetsByStatusResponse &response) = 0;
-    /// <summary>
-    /// Finds Pets by tags
-    /// </summary>
-    /// <remarks>
-    /// Multiple tags can be provided with comma separated strings. Use tag1, tag2, tag3 for testing.
-    /// </remarks>
+    virtual void find_pets_by_status(
+        const std::optional<std::vector<std::string>>& query_status, 
+        findPetsByStatusResponse& response) = 0;
+
+
+    /// <summary>Finds Pets by tags</summary>
+    /// <remarks>Multiple tags can be provided with comma separated strings. Use tag1, tag2, tag3 for testing.</remarks>
     /// <param name="query_tags">Tags to filter by</param>
-    virtual void (const std::optional<std::vector<std::string>> &query_tags, findPetsByTagsResponse &response) = 0;
-    /// <summary>
-    /// Find pet by ID
-    /// </summary>
-    /// <remarks>
-    /// Returns a single pet
-    /// </remarks>
+    virtual void find_pets_by_tags(
+        const std::optional<std::vector<std::string>>& query_tags, 
+        findPetsByTagsResponse& response) = 0;
+
+
+    /// <summary>Find pet by ID</summary>
+    /// <remarks>Returns a single pet</remarks>
     /// <param name="path_petId">ID of pet to return</param>
-    virtual void (const std::int64_t &path_petId, getPetByIdResponse &response) = 0;
-    /// <summary>
-    /// Update an existing pet
-    /// </summary>
-    /// <remarks>
-    /// 
-    /// </remarks>
+    virtual void get_pet_by_id(
+        const std::int64_t& path_petId, 
+        getPetByIdResponse& response) = 0;
+
+
+    /// <summary>Update an existing pet</summary>
+    /// <remarks></remarks>
     /// <param name="pet">Pet object that needs to be added to the store</param>
-    virtual void (const org::openapitools::server::model::Pet &pet, updatePetResponse &response) = 0;
-    /// <summary>
-    /// Updates a pet in the store with form data
-    /// </summary>
-    /// <remarks>
-    /// 
-    /// </remarks>
-    // virtual void (const drogon::HttpRequestPtr& req, std::function<void (const drogon::HttpResponsePtr &)>&& callback) = 0;
-    virtual void (const drogon::HttpRequestPtr& req, const std::int64_t &path_petId, const std::string &name, const std::string &status, updatePetWithFormResponse &response) = 0;
-    /// <summary>
-    /// uploads an image
-    /// </summary>
-    /// <remarks>
-    /// 
-    /// </remarks>
-    // virtual void (const drogon::HttpRequestPtr& req, std::function<void (const drogon::HttpResponsePtr &)>&& callback) = 0;
-    virtual void (const drogon::HttpRequestPtr& req, const std::int64_t &path_petId, const std::string &additionalMetadata, const std::string &file, uploadFileResponse &response) = 0;
+    virtual void update_pet(
+        const org::openapitools::server::model::Pet& pet, 
+        updatePetResponse& response) = 0;
+
+
+    /// <summary>Updates a pet in the store with form data</summary>
+    /// <remarks></remarks>
+
+    virtual void update_pet_with_form(
+        const drogon::HttpRequestPtr& req,
+        const std::int64_t& path_petId, const std::string& name, const std::string& status, 
+        updatePetWithFormResponse& response) = 0;
+
+    /// <summary>uploads an image</summary>
+    /// <remarks></remarks>
+
+    virtual void upload_file(
+        const drogon::HttpRequestPtr& req,
+        const std::int64_t& path_petId, const std::string& additionalMetadata, const std::string& file, 
+        uploadFileResponse& response) = 0;
 
 };
 
 } // namespace org::openapitools::server::api
-
-#endif /* PetApi_INTERFACE_H_ */
-
+#endif /* PET_API_INTERFACE_H_ */

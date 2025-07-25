@@ -3,33 +3,28 @@
 
 #include "{{classname}}Impl.h"
 
-{{#apiNamespaceDeclarations}}
-namespace {{this}} {
-{{/apiNamespaceDeclarations}}
-
-{{#hasModelImport}}
-using namespace {{modelNamespace}};{{/hasModelImport}}
-
-{{classname}}Impl::{{classname}}Impl(const std::shared_ptr<Pistache::Rest::Router>& rtr)
-    : {{classname}}(rtr)
+namespace {{apiNamespace}}
 {
-}
 
 {{#operation}}
-{{#vendorExtensions.x-codegen-pistache-is-parsing-supported}}
-void {{classname}}Impl::{{operationIdSnakeCase}}({{#allParams}}const {{{dataType}}} &{{paramName}}{{^-last}}, {{/-last}}{{/allParams}}{{#hasParams}}, {{/hasParams}}Pistache::Http::ResponseWriter &response) {
-    response.send(Pistache::Http::Code::Ok, "Do some magic\n");
+/* ------------------------------------------------------------------ */
+/*  {{operationId}}                                                   */
+/* ------------------------------------------------------------------ */
+void {{classname}}Impl::{{vendorExtensions.operationIdSnakeCase}}(
+    {{#allParams}}
+    const {{{dataType}}} &{{#isHeaderParam}}header_{{/isHeaderParam}}{{#isQueryParam}}query_{{/isQueryParam}}{{#isPathParam}}path_{{/isPathParam}}{{paramName}}{{^-last}}, {{/-last}}
+    {{/allParams}}{{#hasParams}}, {{/hasParams}}
+    {{operationId}}Response &response)
+{
+    /* TODO: business logic.                                             *
+     * Replace the placeholder below with real handling.                 */
+
+    response = std::integral_constant<
+        drogon::HttpStatusCode,
+        drogon::k501NotImplemented>{};
 }
-{{/vendorExtensions.x-codegen-pistache-is-parsing-supported}}
-{{^vendorExtensions.x-codegen-pistache-is-parsing-supported}}
-void {{classname}}Impl::{{operationIdSnakeCase}}(const Pistache::Rest::Request &request, Pistache::Http::ResponseWriter &response){
-    response.send(Pistache::Http::Code::Ok, "Do some magic\n");
-}
-{{/vendorExtensions.x-codegen-pistache-is-parsing-supported}}
 {{/operation}}
 
-{{#apiNamespaceDeclarations}}
-}
-{{/apiNamespaceDeclarations}}
+} /* namespace {{apiNamespace}} */
 
 {{/operations}}

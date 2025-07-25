@@ -261,8 +261,8 @@ public class CppDrogonServerCodegen extends AbstractCppCodegen {
 
         apiTemplateFiles.put("controller-header.mustache", ".h");
         apiTemplateFiles.put("controller-source.mustache", ".cpp");
-        // apiTemplateFiles.put("api-impl-header.mustache", ".h");
-        // apiTemplateFiles.put("api-impl-source.mustache", ".cpp");
+        apiTemplateFiles.put("api-impl-header.mustache", ".h");
+        apiTemplateFiles.put("api-impl-source.mustache", ".cpp");
         apiTemplateFiles.put("interface-header.mustache", ".h");
 
         embeddedTemplateDir = templateDir = "cpp-drogon-server";
@@ -676,6 +676,10 @@ public class CppDrogonServerCodegen extends AbstractCppCodegen {
             result = interfaceFilenameFromApiFilename(result, ".h");
         } else if (templateName.endsWith("interface-source.mustache")) {
             result = interfaceFilenameFromApiFilename(result, ".cpp");
+        } else if (templateName.endsWith("api-impl-header.mustache")) {
+            result = implFilenameFromApiFilename(result, ".h");       // NEW
+        } else if (templateName.endsWith("api-impl-source.mustache")) {
+            result = implFilenameFromApiFilename(result, ".cpp");     // NEW
         }
         return result;
     }
@@ -692,6 +696,11 @@ public class CppDrogonServerCodegen extends AbstractCppCodegen {
         String result = filename.substring(0, filename.length() - suffix.length()) + "Interface" + suffix;
         result = result.replace(apiFileFolder(), interfaceFileFolder());
         return result;
+    }
+    
+    private String implFilenameFromApiFilename(String filename, String suffix) {
+        return filename.substring(0, filename.length() - suffix.length())
+               + "Impl" + suffix;
     }
 
     @Override

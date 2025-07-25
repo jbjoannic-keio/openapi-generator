@@ -10,76 +10,109 @@
 * Do not edit the class manually.
 */
 /*
- * StoreApi.h
+ * StoreApiInterface.h
  *
  * 
  */
-
-#ifndef StoreApi_INTERFACE_H_
-#define StoreApi_INTERFACE_H_
-
+#ifndef STORE_API_INTERFACE_H_
+#define STORE_API_INTERFACE_H_
 
 
 #include <drogon/HttpTypes.h>
-
 #include <optional>
 #include <utility>
 #include <variant>
+#include <stdexcept>
+#include "Order.h"#include <map>#include <string>
 
-#include "Order.h"
-#include <map>
-#include <string>
-
-namespace org::openapitools::server::api
-{
+namespace org::openapitools::server::api {
 
 class  StoreApiInterface {
 public:
     virtual ~StoreApiInterface() = default;
 
+/* ---------- response variants ---------- */
+    using deleteOrderResponse = std::variant<
+            
+        std::integral_constant<drogon::HttpStatusCode,drogon::k400BadRequest>
+                
+            
+            
+        std::integral_constant<drogon::HttpStatusCode,drogon::k404NotFound>
+                
+            
+    >;
+    using getInventoryResponse = std::variant<
+            
+        std::pair<std::integral_constant<drogon::HttpStatusCode,drogon::k200OK>,std::map<std::string, std::int32_t>}>
 
-    using deleteOrderResponse = std::variant<std::integral_constant<drogon::HttpStatusCode, drogon::k400BadRequest>,std::integral_constant<drogon::HttpStatusCode, drogon::k404NotFound>>;
-    using getInventoryResponse = std::variant<std::pair<std::integral_constant<drogon::HttpStatusCode, drogon::k200OK>,std::map<std::string, std::int32_t>>>;
-    using getOrderByIdResponse = std::variant<std::pair<std::integral_constant<drogon::HttpStatusCode, drogon::k200OK>,org::openapitools::server::model::Order>,std::pair<std::integral_constant<drogon::HttpStatusCode, drogon::k200OK>,org::openapitools::server::model::Order>,std::integral_constant<drogon::HttpStatusCode, drogon::k400BadRequest>,std::integral_constant<drogon::HttpStatusCode, drogon::k404NotFound>>;
-    using placeOrderResponse = std::variant<std::pair<std::integral_constant<drogon::HttpStatusCode, drogon::k200OK>,org::openapitools::server::model::Order>,std::pair<std::integral_constant<drogon::HttpStatusCode, drogon::k200OK>,org::openapitools::server::model::Order>,std::integral_constant<drogon::HttpStatusCode, drogon::k400BadRequest>>;
+            
+    >;
+    using getOrderByIdResponse = std::variant<
+            
+        std::pair<std::integral_constant<drogon::HttpStatusCode,drogon::k200OK>,org::openapitools::server::model::Order}>
+,
+            
+        std::pair<std::integral_constant<drogon::HttpStatusCode,drogon::k200OK>,org::openapitools::server::model::Order}>
 
+            
+            
+        std::integral_constant<drogon::HttpStatusCode,drogon::k400BadRequest>
+                
+            
+            
+        std::integral_constant<drogon::HttpStatusCode,drogon::k404NotFound>
+                
+            
+    >;
+    using placeOrderResponse = std::variant<
+            
+        std::pair<std::integral_constant<drogon::HttpStatusCode,drogon::k200OK>,org::openapitools::server::model::Order}>
+,
+            
+        std::pair<std::integral_constant<drogon::HttpStatusCode,drogon::k200OK>,org::openapitools::server::model::Order}>
 
+            
+            
+        std::integral_constant<drogon::HttpStatusCode,drogon::k400BadRequest>
+                
+            
+    >;
 
-    /// <summary>
-    /// Delete purchase order by ID
-    /// </summary>
-    /// <remarks>
-    /// For valid response try integer IDs with value &lt; 1000. Anything above 1000 or nonintegers will generate API errors
-    /// </remarks>
+/* ---------- abstract operations ---------- */
+    /// <summary>Delete purchase order by ID</summary>
+    /// <remarks>For valid response try integer IDs with value &lt; 1000. Anything above 1000 or nonintegers will generate API errors</remarks>
     /// <param name="path_orderId">ID of the order that needs to be deleted</param>
-    virtual void (const std::string &path_orderId, deleteOrderResponse &response) = 0;
-    /// <summary>
-    /// Returns pet inventories by status
-    /// </summary>
-    /// <remarks>
-    /// Returns a map of status codes to quantities
-    /// </remarks>
-    virtual void (getInventoryResponse &response) = 0;
-    /// <summary>
-    /// Find purchase order by ID
-    /// </summary>
-    /// <remarks>
-    /// For valid response try integer IDs with value &lt;&#x3D; 5 or &gt; 10. Other values will generate exceptions
-    /// </remarks>
+    virtual void delete_order(
+        const std::string& path_orderId, 
+        deleteOrderResponse& response) = 0;
+
+
+    /// <summary>Returns pet inventories by status</summary>
+    /// <remarks>Returns a map of status codes to quantities</remarks>
+    
+    virtual void get_inventory(
+
+        getInventoryResponse& response) = 0;
+
+
+    /// <summary>Find purchase order by ID</summary>
+    /// <remarks>For valid response try integer IDs with value &lt;&#x3D; 5 or &gt; 10. Other values will generate exceptions</remarks>
     /// <param name="path_orderId">ID of pet that needs to be fetched</param>
-    virtual void (const std::int64_t &path_orderId, getOrderByIdResponse &response) = 0;
-    /// <summary>
-    /// Place an order for a pet
-    /// </summary>
-    /// <remarks>
-    /// 
-    /// </remarks>
+    virtual void get_order_by_id(
+        const std::int64_t& path_orderId, 
+        getOrderByIdResponse& response) = 0;
+
+
+    /// <summary>Place an order for a pet</summary>
+    /// <remarks></remarks>
     /// <param name="order">order placed for purchasing the pet</param>
-    virtual void (const org::openapitools::server::model::Order &order, placeOrderResponse &response) = 0;
+    virtual void place_order(
+        const org::openapitools::server::model::Order& order, 
+        placeOrderResponse& response) = 0;
+
 
 };
 
 } // namespace org::openapitools::server::api
-
-#endif /* StoreApi_INTERFACE_H_ */
-
+#endif /* STORE_API_INTERFACE_H_ */

@@ -3,10 +3,16 @@ CMakeLists.txt
 README.md
 api/PetApi.cpp
 api/PetApi.h
+api/PetApiImpl.cpp
+api/PetApiImpl.h
 api/StoreApi.cpp
 api/StoreApi.h
+api/StoreApiImpl.cpp
+api/StoreApiImpl.h
 api/UserApi.cpp
 api/UserApi.h
+api/UserApiImpl.cpp
+api/UserApiImpl.h
 interfaces/PetApiInterface.h
 interfaces/StoreApiInterface.h
 interfaces/UserApiInterface.h
