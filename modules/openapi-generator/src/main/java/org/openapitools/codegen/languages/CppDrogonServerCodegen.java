@@ -265,7 +265,7 @@ public class CppDrogonServerCodegen extends AbstractCppCodegen {
         apiTemplateFiles.put("api-impl-source.mustache", ".cpp");
         apiTemplateFiles.put("interface-header.mustache", ".h");
 
-        embeddedTemplateDir = templateDir = "cpp-drogon-server";
+        embeddedTemplateDir = "cpp-drogon";
 
         cliOptions.clear();
         addSwitch(OPTIONAL_EXTERNAL_LIB, OPTIONAL_EXTERNAL_LIB_DESC, this.isAddExternalLibs);
@@ -537,7 +537,12 @@ public class CppDrogonServerCodegen extends AbstractCppCodegen {
             queryParamIndex++;
         }
 
-        String pathForDrogon = path.replaceAll("\\{(.*?)}", ":$1");
+        String pathForDrogon = path;
+        int idx = 1;
+        for (CodegenParameter p : op.pathParams) {
+            pathForDrogon = pathForDrogon.replace("{" + p.paramName + "}", "{" + idx + "}");
+            idx++;
+        }
 
         op.vendorExtensions.put("x-codegen-path-simple", pathSimple);
         op.vendorExtensions.put("x-codegen-path-complete", pathComplete.toString());
