@@ -738,10 +738,6 @@ public class CppDrogonServerCodegen extends AbstractCppCodegen {
             result = interfaceFilenameFromApiFilename(result, ".h");
         } else if (templateName.endsWith("interface-source.mustache")) {
             result = interfaceFilenameFromApiFilename(result, ".cpp");
-        } else if (templateName.endsWith("api-impl-header.mustache")) {
-            result = implFilenameFromApiFilename(result, ".h"); // NEW
-        } else if (templateName.endsWith("api-impl-source.mustache")) {
-            result = implFilenameFromApiFilename(result, ".cpp"); // NEW
         }
         return result;
     }
