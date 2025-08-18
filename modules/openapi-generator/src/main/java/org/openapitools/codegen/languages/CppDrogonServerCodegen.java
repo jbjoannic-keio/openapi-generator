@@ -74,10 +74,10 @@ public class CppDrogonServerCodegen extends AbstractCppCodegen {
     protected String helpersPackage = "";
 
     /**
-     * OpenApi types that shouldn't have a namespace added with getTypeDeclaration() at generation time (for json::json)
+     * OpenApi types that shouldn't have a namespace added with getTypeDeclaration()
+     * at generation time (for json::json)
      */
     private final Set<String> openAPITypesWithoutModelNamespace = new HashSet<>();
-
 
     /**
      * Http body type drogon mapping
@@ -229,7 +229,7 @@ public class CppDrogonServerCodegen extends AbstractCppCodegen {
         super();
         generatorMetadata = GeneratorMetadata
                 .newBuilder()
-                .stability(Stability.BETA)   // marks it “beta” in CLI list
+                .stability(Stability.BETA) // marks it “beta” in CLI list
                 .build();
 
         // TODO: cpp-drogon-server maintainer review
@@ -241,15 +241,11 @@ public class CppDrogonServerCodegen extends AbstractCppCodegen {
                         GlobalFeature.Callbacks,
                         GlobalFeature.LinkObjects,
                         GlobalFeature.ParameterStyling,
-                        GlobalFeature.MultiServer
-                )
+                        GlobalFeature.MultiServer)
                 .excludeSchemaSupportFeatures(
-                        SchemaSupportFeature.Polymorphism
-                )
+                        SchemaSupportFeature.Polymorphism)
                 .excludeParameterFeatures(
-                        ParameterFeature.Cookie
-                )
-        );
+                        ParameterFeature.Cookie));
 
         if (StringUtils.isEmpty(modelNamePrefix)) {
             modelNamePrefix = PREFIX;
@@ -313,10 +309,12 @@ public class CppDrogonServerCodegen extends AbstractCppCodegen {
 
     private void setupSupportingFiles() {
         supportingFiles.clear();
-        // supportingFiles.add(new SupportingFile("api-base-header.mustache", "api", "ApiBase.h"));
+        // supportingFiles.add(new SupportingFile("api-base-header.mustache", "api",
+        // "ApiBase.h"));
         supportingFiles.add(new SupportingFile("helpers-header.mustache", "model", modelNamePrefix + "Helpers.h"));
         supportingFiles.add(new SupportingFile("helpers-source.mustache", "model", modelNamePrefix + "Helpers.cpp"));
-        supportingFiles.add(new SupportingFile("main-api-server.mustache", "", modelNamePrefix + "main-api-server.cpp"));
+        supportingFiles
+                .add(new SupportingFile("main-api-server.mustache", "", modelNamePrefix + "main-api-server.cpp"));
         supportingFiles.add(new SupportingFile("cmake.mustache", "", "CMakeLists.txt"));
         supportingFiles.add(new SupportingFile("README.mustache", "", "README.md"));
     }
@@ -354,23 +352,22 @@ public class CppDrogonServerCodegen extends AbstractCppCodegen {
 
     @Override
     public void addOperationToGroup(String tag,
-                                    String resourcePath,
-                                    Operation operation,
-                                    CodegenOperation op,
-                                    Map<String, List<CodegenOperation>> operations) {
+            String resourcePath,
+            Operation operation,
+            CodegenOperation op,
+            Map<String, List<CodegenOperation>> operations) {
 
         /* Use first tag as controller name; fall back to “default” */
         String baseTag = (tag == null || tag.trim().isEmpty())
                 ? "default"
                 : sanitizeTag(tag);
 
-        /* Tell the templates which controller they belong to            */
+        /* Tell the templates which controller they belong to */
         op.baseName = baseTag;
 
-        /* Accumulate operations under the same controller               */
+        /* Accumulate operations under the same controller */
         operations.computeIfAbsent(baseTag, k -> new ArrayList<>()).add(op);
     }
-
 
     private void setupModelTemplate() {
         if (additionalProperties.containsKey(OPTION_USE_STRUCT_MODEL))
@@ -404,7 +401,6 @@ public class CppDrogonServerCodegen extends AbstractCppCodegen {
         }
     }
 
-
     @Override
     public CodegenModel fromModel(String name, Schema model) {
         // Exchange import directives from core model with ours
@@ -425,8 +421,7 @@ public class CppDrogonServerCodegen extends AbstractCppCodegen {
                 && codegenModel.anyOf.size() > 1
                 && codegenModel.anyOf.contains(STD_STRING)
                 && !codegenModel.anyOf.contains("AnyType")
-                && codegenModel.interfaces.size() == 1
-        ) {
+                && codegenModel.interfaces.size() == 1) {
             codegenModel.vendorExtensions.put("x-is-string-enum-container", true);
         }
         return codegenModel;
@@ -450,7 +445,8 @@ public class CppDrogonServerCodegen extends AbstractCppCodegen {
                 }
             }
 
-            // Add Drogon status code mapping with support for multiple content types per response
+            // Add Drogon status code mapping with support for multiple content types per
+            // response
             List<Map<String, Object>> responseTuples = new ArrayList<>();
             for (Map.Entry<String, ApiResponse> entry : operation.getResponses().entrySet()) {
                 String statusCode = DROGON_STATUS_CODE_MAPPING.get(entry.getKey());
@@ -463,7 +459,6 @@ public class CppDrogonServerCodegen extends AbstractCppCodegen {
                     // Handle each content type for this status code
 
                     respInfo.put("statusCode", statusCode);
-
 
                     for (Map.Entry<String, io.swagger.v3.oas.models.media.MediaType> contentEntry : response
                             .getContent().entrySet()) {
@@ -507,6 +502,55 @@ public class CppDrogonServerCodegen extends AbstractCppCodegen {
                 responseTuples.add(respInfo);
             }
             op.vendorExtensions.put("x-codegen-response-variants", responseTuples);
+
+            // Build a flat list of response alternatives to make Mustache separators
+            // trivial
+            List<Map<String, Object>> flatVariants = new ArrayList<>();
+            Set<String> seen = new HashSet<>();
+
+            for (Map.Entry<String, ApiResponse> entry : operation.getResponses().entrySet()) {
+                String statusCode = DROGON_STATUS_CODE_MAPPING.getOrDefault(entry.getKey(), "kUnknown");
+                ApiResponse response = entry.getValue();
+                if (response.getContent() != null && !response.getContent().isEmpty()) {
+                    for (Map.Entry<String, io.swagger.v3.oas.models.media.MediaType> contentEntry : response
+                            .getContent().entrySet()) {
+                        String mediaType = contentEntry.getKey();
+                        String contentType = DROGON_CONTENT_TYPE_MAPPING.getOrDefault(mediaType, "CT_TEXT_PLAIN");
+                        Schema<?> responseSchema = contentEntry.getValue().getSchema();
+
+                        Map<String, Object> alt = new HashMap<>();
+                        alt.put("statusCode", statusCode);
+                        alt.put("hasContentType", true);
+                        alt.put("contentType", contentType);
+
+                        if (responseSchema != null) {
+                            CodegenProperty cp = fromProperty("response", responseSchema, false);
+                            alt.put("hasBody", true);
+                            alt.put("dataType", cp.dataType);
+                        } else {
+                            // should not happen with content, but be defensive
+                            alt.put("hasBody", false);
+                        }
+
+                        String dedupKey = statusCode + "|" + contentType + "|" + alt.getOrDefault("dataType", "");
+                        if (seen.add(dedupKey)) {
+                            flatVariants.add(alt);
+                        }
+                    }
+                } else {
+                    Map<String, Object> alt = new HashMap<>();
+                    alt.put("statusCode", statusCode);
+                    alt.put("hasBody", false);
+                    alt.put("hasContentType", false);
+                    String dedupKey = statusCode + "|nocontent|";
+                    if (seen.add(dedupKey)) {
+                        flatVariants.add(alt);
+                    }
+                }
+            }
+
+            op.vendorExtensions.put("x-codegen-response-variants-flat", flatVariants);
+
         }
 
         // Build pathSimple and pathComplete for Drogon
@@ -519,7 +563,8 @@ public class CppDrogonServerCodegen extends AbstractCppCodegen {
         // Replace path parameters with {1}, {2}, etc.
         for (CodegenParameter param : op.pathParams) {
             pathSimple = pathSimple.replaceAll("\\{" + param.paramName + "}", "");
-            pathComplete = new StringBuilder(pathComplete.toString().replaceAll("\\{" + param.paramName + "}", "{" + pathParamIndex + "}"));
+            pathComplete = new StringBuilder(
+                    pathComplete.toString().replaceAll("\\{" + param.paramName + "}", "{" + pathParamIndex + "}"));
             pathParamIndex++;
         }
 
@@ -528,10 +573,10 @@ public class CppDrogonServerCodegen extends AbstractCppCodegen {
         boolean firstQueryParam = true;
         for (CodegenParameter param : op.queryParams) {
             if (firstQueryParam) {
-            pathComplete.append("?");
-            firstQueryParam = false;
+                pathComplete.append("?");
+                firstQueryParam = false;
             } else {
-            pathComplete.append("&");
+                pathComplete.append("&");
             }
             pathComplete.append(param.paramName).append("={").append(queryParamIndex).append("}");
             queryParamIndex++;
@@ -553,15 +598,20 @@ public class CppDrogonServerCodegen extends AbstractCppCodegen {
 
     /**
      * Extract the primary status code from operation responses
+     * 
      * @param responses The operation responses
      * @return The primary status code as string
      */
     private String getPrimaryStatusCode(io.swagger.v3.oas.models.responses.ApiResponses responses) {
         // Priority order: 200, 201, 2xx success codes, then others
-        if (responses.containsKey("200")) return "200";
-        if (responses.containsKey("201")) return "201";
-        if (responses.containsKey("202")) return "202";
-        if (responses.containsKey("204")) return "204";
+        if (responses.containsKey("200"))
+            return "200";
+        if (responses.containsKey("201"))
+            return "201";
+        if (responses.containsKey("202"))
+            return "202";
+        if (responses.containsKey("204"))
+            return "204";
 
         // Look for other 2xx codes
         for (String code : responses.keySet()) {
@@ -608,7 +658,6 @@ public class CppDrogonServerCodegen extends AbstractCppCodegen {
         return objs;
     }
 
-
     private void postProcessSingleOperation(OperationMap operations, CodegenOperation op) {
         if (op.vendorExtensions == null) {
             op.vendorExtensions = new HashMap<>();
@@ -625,12 +674,14 @@ public class CppDrogonServerCodegen extends AbstractCppCodegen {
 
         boolean consumeJson = false;
         if (op.consumes != null) {
-            Predicate<Map<String, String>> isMediaTypeJson = consume -> (consume.get("mediaType") != null && consume.get("mediaType").equals("application/json"));
+            Predicate<Map<String, String>> isMediaTypeJson = consume -> (consume.get("mediaType") != null
+                    && consume.get("mediaType").equals("application/json"));
             consumeJson = op.consumes.stream().anyMatch(isMediaTypeJson);
         }
         op.vendorExtensions.put("x-codegen-drogon-consumes-json", consumeJson);
 
-        op.httpMethod = op.httpMethod.substring(0, 1).toUpperCase(Locale.ROOT) + op.httpMethod.substring(1).toLowerCase(Locale.ROOT);
+        op.httpMethod = op.httpMethod.substring(0, 1).toUpperCase(Locale.ROOT)
+                + op.httpMethod.substring(1).toLowerCase(Locale.ROOT);
 
         boolean isParsingSupported = true;
         for (CodegenParameter param : op.allParams) {
@@ -641,7 +692,8 @@ public class CppDrogonServerCodegen extends AbstractCppCodegen {
         }
         op.vendorExtensions.put("x-codegen-drogon-is-parsing-supported", isParsingSupported);
 
-        // Check if any one of the operations needs a model, then at API file level, at least one model has to be included.
+        // Check if any one of the operations needs a model, then at API file level, at
+        // least one model has to be included.
         Predicate<String> importNotInImportMapping = hdr -> !importMapping.containsKey(hdr);
         if (op.imports.stream().anyMatch(importNotInImportMapping)) {
             operations.put("hasModelImport", true);
@@ -651,19 +703,26 @@ public class CppDrogonServerCodegen extends AbstractCppCodegen {
     /**
      * postProcessSingleParam - Modifies a single parameter, adjusting generated
      * data types for Header and Query parameters.
-     *
-     * @param param CodegenParameter to be modified.
      */
     private void postProcessSingleParam(CodegenParameter param) {
-        //TODO: This changes the info about the real type but it is needed to parse the header params
-        if (param.isQueryParam) {
-            String dataTypeWithNamespace = param.isPrimitiveType ? param.dataType : prefixWithNameSpaceIfNeeded(param.dataType);
+        // For query and header params, wrap in std::optional<> only when NOT required.
+        if (param.isQueryParam || param.isHeaderParam) {
+            boolean makeOptional = !param.required;
+            String dataTypeWithNamespace = param.isPrimitiveType
+                    ? param.dataType
+                    : prefixWithNameSpaceIfNeeded(param.dataType);
 
-            param.dataType = "std::optional<" + dataTypeWithNamespace + ">";
-            param.isOptional = true;
-
-            if (!param.isPrimitiveType) {
-                param.baseType = "std::optional<" + param.baseType + ">";
+            if (makeOptional) {
+                param.dataType = "std::optional<" + dataTypeWithNamespace + ">";
+                param.isOptional = true;
+                if (!param.isPrimitiveType) {
+                    param.baseType = "std::optional<" + param.baseType + ">";
+                }
+            } else {
+                // Ensure model namespace for non-primitive when required
+                if (!param.isPrimitiveType) {
+                    param.dataType = dataTypeWithNamespace;
+                }
             }
         }
     }
@@ -682,15 +741,16 @@ public class CppDrogonServerCodegen extends AbstractCppCodegen {
         } else if (templateName.endsWith("interface-source.mustache")) {
             result = interfaceFilenameFromApiFilename(result, ".cpp");
         } else if (templateName.endsWith("api-impl-header.mustache")) {
-            result = implFilenameFromApiFilename(result, ".h");       // NEW
+            result = implFilenameFromApiFilename(result, ".h"); // NEW
         } else if (templateName.endsWith("api-impl-source.mustache")) {
-            result = implFilenameFromApiFilename(result, ".cpp");     // NEW
+            result = implFilenameFromApiFilename(result, ".cpp"); // NEW
         }
         return result;
     }
 
     /**
-     * interfaceFilenameFromApiFilename - Inserts the string "Interface" in front of the
+     * interfaceFilenameFromApiFilename - Inserts the string "Interface" in front of
+     * the
      * suffix and replace "api" with "interface" directory prefix.
      *
      * @param filename Filename of the api-file to be modified
@@ -702,10 +762,10 @@ public class CppDrogonServerCodegen extends AbstractCppCodegen {
         result = result.replace(apiFileFolder(), interfaceFileFolder());
         return result;
     }
-    
+
     private String implFilenameFromApiFilename(String filename, String suffix) {
         return filename.substring(0, filename.length() - suffix.length())
-               + "Impl" + suffix;
+                + "Impl" + suffix;
     }
 
     @Override
@@ -719,7 +779,7 @@ public class CppDrogonServerCodegen extends AbstractCppCodegen {
      * for different property types
      *
      * @return a string value used as the `dataType` field for model templates,
-     * `returnType` for api templates
+     *         `returnType` for api templates
      */
     @Override
     public String getTypeDeclaration(Schema p) {
@@ -746,7 +806,8 @@ public class CppDrogonServerCodegen extends AbstractCppCodegen {
     }
 
     /**
-     * Prefix an open API type with a namespace or not, depending of its current type and if it is on a list to avoid it.
+     * Prefix an open API type with a namespace or not, depending of its current
+     * type and if it is on a list to avoid it.
      *
      * @param openAPIType Open API Type.
      * @return type prefixed with the namespace or not.
