@@ -8,11 +8,17 @@
 #ifndef {{classname}}_H_
 #define {{classname}}_H_
 
+// --- Standard & 3rd-party includes required by the public interface ---
+#include <cstdint>
+#include <string>
+#include <sstream>
+#include <json/json.h>
+{{#hasOptional}}#include <optional>{{/hasOptional}}
+
+// --- Generator-provided default & model-specific includes ---
 {{{defaultInclude}}}
 {{#imports}}{{{this}}}
 {{/imports}}
-#include <nlohmann/json.hpp>
-{{#hasOptional}}#include <optional>{{/hasOptional}}
 
 namespace {{modelNamespace}}
 {
@@ -20,10 +26,9 @@ namespace {{modelNamespace}}
 struct {{declspec}} {{classname}}
 {
     {{#isEnum}}{{#allowableValues}}
+    // Model-level enum
     enum e{{classname}} {
-        // To have a valid default value.
-        // Avoiding name clashes with user defined
-        // enum values
+        // Valid default sentinel to avoid clashes with user-defined values
         INVALID_VALUE_OPENAPI_GENERATED = 0,
         {{#enumVars}}
         {{{name}}}{{^-last}}, {{/-last}}
@@ -33,8 +38,13 @@ struct {{declspec}} {{classname}}
     {{#vars}}
     {{^required}}std::optional<{{/required}}{{{dataType}}}{{^required}}>{{/required}} {{name}};
     {{/vars}}
-    {{#isEnum}}{{classname}}::e{{classname}} value = {{classname}}::e{{classname}}::INVALID_VALUE_OPENAPI_GENERATED;{{/isEnum}}{{#vendorExtensions.x-is-string-enum-container}}{{#anyOf}}{{#-first}}{{{this}}} m_value;{{/-first}}{{/anyOf}}{{/vendorExtensions.x-is-string-enum-container}}
 
+    {{#isEnum}}// Enum container default
+    {{classname}}::e{{classname}} value = {{classname}}::e{{classname}}::INVALID_VALUE_OPENAPI_GENERATED;
+    {{/isEnum}}
+    {{#vendorExtensions.x-is-string-enum-container}}{{#anyOf}}{{#-first}}{{{this}}} m_value;{{/-first}}{{/anyOf}}{{/vendorExtensions.x-is-string-enum-container}}
+
+    // Equality
     bool operator==(const {{classname}}& other) const;
     bool operator!=(const {{classname}}& other) const;
 
@@ -50,21 +60,21 @@ struct {{declspec}} {{classname}}
     bool validate(std::stringstream& msg) const;
 
     /// <summary>
-    /// Helper overload for validate. Used when one model stores another model and calls it's validate.
+    /// Helper overload for validate. Used when one model stores another model and calls its validate.
     /// Not meant to be called outside that case.
     /// </summary>
     bool validate(std::stringstream& msg, const std::string& pathPrefix) const;
 
-    nlohmann::json to_json() const;
-    static {{classname}} from_json(const nlohmann::json& j);
+    // Convenience JSON helpers (JsonCpp)
+    Json::Value to_json() const;
+    static {{classname}} from_json(const Json::Value& j);
 };
 
-{{declspec}} void to_json(nlohmann::json& j, const {{classname}}& o);
-{{declspec}} void from_json(const nlohmann::json& j, {{classname}}& o);
-
+// Free functions (useful for generic utilities/tests)
+{{declspec}} void to_json(Json::Value& j, const {{classname}}& o);
+{{declspec}} void from_json(const Json::Value& j, {{classname}}& o);
 
 } // namespace {{modelNamespace}}
-
 
 #endif /* {{classname}}_H_ */
 {{/model}}

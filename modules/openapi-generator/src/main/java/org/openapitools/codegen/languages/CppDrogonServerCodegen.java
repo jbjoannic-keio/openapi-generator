@@ -257,8 +257,6 @@ public class CppDrogonServerCodegen extends AbstractCppCodegen {
 
         apiTemplateFiles.put("controller-header.mustache", ".h");
         apiTemplateFiles.put("controller-source.mustache", ".cpp");
-        apiTemplateFiles.put("api-impl-header.mustache", ".h");
-        apiTemplateFiles.put("api-impl-source.mustache", ".cpp");
         apiTemplateFiles.put("interface-header.mustache", ".h");
 
         embeddedTemplateDir = "cpp-drogon";
