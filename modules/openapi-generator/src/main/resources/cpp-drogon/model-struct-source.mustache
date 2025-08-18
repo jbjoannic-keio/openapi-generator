@@ -1,129 +1,403 @@
 {{>licenseInfo}}
 {{#models}}{{#model}}
 
-    #include "{{classname}}.h"
-    #include "{{prefix}}Helpers.h"
+#include "{{classname}}.h"
+#include "{{prefix}}Helpers.h"
+#include <stdexcept>
 
-    namespace {{modelNamespace}}
-    {
+namespace {{modelNamespace}}
+{
 
-    nlohmann::json {{classname}}::to_json() const
-    {
-    nlohmann::json j;
-    {{#modelNamespaceDeclarations}}::{{this}}{{/modelNamespaceDeclarations}}::to_json(j, *this);
-    return j;
-    }
+// -------------------------
+// Member convenience helpers
+// -------------------------
 
-    {{classname}} {{classname}}::from_json(const nlohmann::json& j)
-    {
-    {{classname}} o{};
-    {{#modelNamespaceDeclarations}}::{{this}}{{/modelNamespaceDeclarations}}::from_json(j, o);
-    return o;
-    }
+Json::Value {{classname}}::to_json() const
+{
+    Json::Value jsonObj(Json::objectValue);
+    {{#modelNamespaceDeclarations}}::{{this}}{{/modelNamespaceDeclarations}}::to_json(jsonObj, *this);
+    return jsonObj;
+}
 
-    void {{classname}}::validate() const
-    {
+{{classname}} {{classname}}::from_json(const Json::Value& jsonObj)
+{
+    {{classname}} out{};
+    {{#modelNamespaceDeclarations}}::{{this}}{{/modelNamespaceDeclarations}}::from_json(jsonObj, out);
+    return out;
+}
+
+void {{classname}}::validate() const
+{
     std::stringstream msg;
     if (!validate(msg))
     {
-    throw {{helpersNamespace}}::ValidationException(msg.str());
+        throw {{helpersNamespace}}::ValidationException(msg.str());
     }
-    }
+}
 
-    bool {{classname}}::validate(std::stringstream& msg) const
-    {
+bool {{classname}}::validate(std::stringstream& msg) const
+{
     return validate(msg, "");
-    }
+}
 
-    bool {{classname}}::validate(std::stringstream& msg, const std::string& pathPrefix) const
-    {
+bool {{classname}}::validate(std::stringstream& msg, const std::string& pathPrefix) const
+{
     bool success = true;
     const std::string _pathPrefix = pathPrefix.empty() ? "{{classname}}" : pathPrefix;
 
-    {{#isEnum}}{{! Special case for enum types }}
-        if (value == {{classname}}::e{{classname}}::INVALID_VALUE_OPENAPI_GENERATED)
-        {
+    {{#isEnum}}
+    // Enum container must be set
+    if (value == {{classname}}::e{{classname}}::INVALID_VALUE_OPENAPI_GENERATED)
+    {
         success = false;
         msg << _pathPrefix << ": has no value;";
-        }
+    }
     {{/isEnum}}
     {{^isEnum}}
-        {{#vars}}
-            {{#isArray}} {{! Always generate validation body for array types }}
-                {{^required}}if ({{name}}.has_value()){{/required}}
-                {{#required}}/* {{name}} */ {{/required}}{
-                // NOTE: the name 'value' is intentional; the validation partial expects it.
-                const {{{dataType}}}& value = {{name}}{{^required}}.value(){{/required}};
-                const std::string currentValuePath = _pathPrefix + ".{{nameInCamelCase}}";
-                {{> model-validation-body }}
-                }
-            {{/isArray}}{{^isArray}}{{#hasValidation}} {{! Only generate validation if necessary }}
-                {{^required}}if ({{name}}.has_value()){{/required}}
-                {{#required}}/* {{name}} */ {{/required}}{
-                const {{{dataType}}}& value = {{name}}{{^required}}.value(){{/required}};
-                const std::string currentValuePath = _pathPrefix + ".{{nameInCamelCase}}";
-                {{> model-validation-body }}
-                }
-            {{/hasValidation}}{{/isArray}}{{/vars}}{{/isEnum}}{{#vendorExtensions.x-is-string-enum-container}}{{#anyOf}}{{#-first}}
-        if (!m_value.validate(msg))
-        {
-        success = false;
-        }{{/-first}}{{/anyOf}}{{/vendorExtensions.x-is-string-enum-container}}
-    return success;
-    }
-
-    void to_json(nlohmann::json& j, const {{classname}}& o)
-    {
-    j = nlohmann::json::object();
     {{#vars}}
-        {{^required}}if (o.{{name}}.has_value()){{/required}}
-        j["{{baseName}}"] = o.{{name}}{{^required}}.value(){{/required}};
+      {{#isArray}}
+        {{^required}}if ({{name}}.has_value()){{/required}}
+        {{#required}}/* {{name}} */{{/required}}
+        {
+            // NOTE: the variable name 'value' is intentional; the validation partial expects it.
+            const {{{dataType}}}& value = {{name}}{{^required}}.value(){{/required}};
+            const std::string currentValuePath = _pathPrefix + ".{{nameInCamelCase}}";
+            {{> model-validation-body }}
+        }
+      {{/isArray}}
+      {{^isArray}}
+        {{#hasValidation}}
+          {{^required}}if ({{name}}.has_value()){{/required}}
+          {{#required}}/* {{name}} */{{/required}}
+          {
+              const {{{dataType}}}& value = {{name}}{{^required}}.value(){{/required}};
+              const std::string currentValuePath = _pathPrefix + ".{{nameInCamelCase}}";
+              {{> model-validation-body }}
+          }
+        {{/hasValidation}}
+      {{/isArray}}
     {{/vars}}
-    {{#isEnum}}{{#allowableValues}}
-        switch (o.value)
-        {
-        {{#enumVars}}
-            {{#-first}}
-                case {{classname}}::e{{classname}}::INVALID_VALUE_OPENAPI_GENERATED:
-                j = {{#isInteger}}0{{/isInteger}}{{^isInteger}}"INVALID_VALUE_OPENAPI_GENERATED"{{/isInteger}};
-                break;
-            {{/-first}}
-            case {{classname}}::e{{classname}}::{{name}}:
-            j = {{#isInteger}}{{value}}{{/isInteger}}{{^isInteger}}"{{value}}"{{/isInteger}};
-            break;
-        {{/enumVars}}
-        }{{/allowableValues}}{{/isEnum}}{{#vendorExtensions.x-is-string-enum-container}}{{#anyOf}}{{#-first}}to_json(j, o.m_value);{{/-first}}{{/anyOf}}{{/vendorExtensions.x-is-string-enum-container}}
-    }
+    {{/isEnum}}
 
-    void from_json(const nlohmann::json& j, {{classname}}& o)
+    {{#vendorExtensions.x-is-string-enum-container}}{{#anyOf}}{{#-first}}
+    if (!m_value.validate(msg))
     {
+        success = false;
+    }
+    {{/-first}}{{/anyOf}}{{/vendorExtensions.x-is-string-enum-container}}
+
+    return success;
+}
+
+// -------------------------
+// Free JSON (de)serializers
+// -------------------------
+
+void to_json(Json::Value& j, const {{classname}}& o)
+{
+    {{#isEnum}}{{#allowableValues}}
+    // Enum serialized as a scalar (string or integer)
+    switch (o.value)
+    {
+    {{#enumVars}}
+      {{#-first}}
+        case {{classname}}::e{{classname}}::INVALID_VALUE_OPENAPI_GENERATED:
+            j = Json::Value{{#isInteger}}(0){{/isInteger}}{{^isInteger}}("INVALID_VALUE_OPENAPI_GENERATED"){{/isInteger}};
+            return;
+      {{/-first}}
+        case {{classname}}::e{{classname}}::{{name}}:
+            j = Json::Value{{#isInteger}}({{value}}){{/isInteger}}{{^isInteger}}("{{value}}"){{/isInteger}};
+            return;
+    {{/enumVars}}
+    }
+    return;
+    {{/allowableValues}}{{/isEnum}}
+
+    // Non-enum: object with properties
+    j = Json::Value(Json::objectValue);
+
     {{#vars}}
+      {{#isArray}}
+        {{^required}}if (o.{{name}}.has_value()){{/required}}
+        {
+            const auto& {{name}}Vec = {{#required}}o.{{name}}{{/required}}{{^required}}o.{{name}}.value(){{/required}};
+            Json::Value {{name}}JsonArr(Json::arrayValue);
+
+            {{#items.isPrimitiveType}}
+              for (const auto& {{name}}Elem : {{name}}Vec) {
+                {{name}}JsonArr.append({{name}}Elem);
+              }
+            {{/items.isPrimitiveType}}
+            {{^items.isPrimitiveType}}
+              {{#items.isString}}
+                for (const auto& {{name}}Elem : {{name}}Vec) {
+                  {{name}}JsonArr.append({{name}}Elem);
+                }
+              {{/items.isString}}
+              {{^items.isString}}
+                // Array of nested models
+                for (const auto& {{name}}Elem : {{name}}Vec) {
+                  Json::Value {{name}}ElemJson;
+                  to_json({{name}}ElemJson, {{name}}Elem);
+                  {{name}}JsonArr.append(std::move({{name}}ElemJson));
+                }
+              {{/items.isString}}
+            {{/items.isPrimitiveType}}
+
+            j["{{baseName}}"] = std::move({{name}}JsonArr);
+        }
+      {{/isArray}}
+
+      {{^isArray}}
+        {{#isMap}}
+          {{^required}}if (o.{{name}}.has_value()){{/required}}
+          {
+              const auto& {{name}}Map = {{#required}}o.{{name}}{{/required}}{{^required}}o.{{name}}.value(){{/required}};
+              Json::Value {{name}}JsonObj(Json::objectValue);
+
+              {{#items.isPrimitiveType}}
+                for (const auto& kv : {{name}}Map) {
+                  {{name}}JsonObj[kv.first] = kv.second;
+                }
+              {{/items.isPrimitiveType}}
+              {{^items.isPrimitiveType}}
+                {{#items.isString}}
+                  for (const auto& kv : {{name}}Map) {
+                    {{name}}JsonObj[kv.first] = kv.second;
+                  }
+                {{/items.isString}}
+                {{^items.isString}}
+                  // Map<string, nested model>
+                  for (const auto& kv : {{name}}Map) {
+                    Json::Value valueJson;
+                    to_json(valueJson, kv.second);
+                    {{name}}JsonObj[kv.first] = std::move(valueJson);
+                  }
+                {{/items.isString}}
+              {{/items.isPrimitiveType}}
+
+              j["{{baseName}}"] = std::move({{name}}JsonObj);
+          }
+        {{/isMap}}
+
+        {{^isMap}}
+          {{#isPrimitiveType}}
+            {{#required}}j["{{baseName}}"] = o.{{name}};{{/required}}
+            {{^required}}if (o.{{name}}.has_value()) j["{{baseName}}"] = o.{{name}}.value();{{/required}}
+          {{/isPrimitiveType}}
+          {{^isPrimitiveType}}
+            {{#isString}}
+              {{#required}}j["{{baseName}}"] = o.{{name}};{{/required}}
+              {{^required}}if (o.{{name}}.has_value()) j["{{baseName}}"] = o.{{name}}.value();{{/required}}
+            {{/isString}}
+            {{^isString}}
+              {{^required}}if (o.{{name}}.has_value()){{/required}}
+              {
+                  Json::Value propJson;
+                  to_json(propJson, {{#required}}o.{{name}}{{/required}}{{^required}}o.{{name}}.value(){{/required}});
+                  j["{{baseName}}"] = std::move(propJson);
+              }
+            {{/isString}}
+          {{/isPrimitiveType}}
+        {{/isMap}}
+      {{/isArray}}
+    {{/vars}}
+
+    {{#vendorExtensions.x-is-string-enum-container}}{{#anyOf}}{{#-first}}to_json(j, o.m_value);{{/-first}}{{/anyOf}}{{/vendorExtensions.x-is-string-enum-container}}
+}
+
+void from_json(const Json::Value& j, {{classname}}& o)
+{
+    {{#vars}}
+      {{#required}}
+        if (!j.isMember("{{baseName}}")) {
+            throw std::invalid_argument("Missing required field: {{baseName}}");
+        }
+      {{/required}}
+
+      {{#isArray}}
         {{#required}}
-            j.at("{{baseName}}").get_to(o.{{name}});
+          {
+              const Json::Value& {{name}}JsonArr = j["{{baseName}}"];
+              std::vector<{{{items.dataType}}}> parsed{{name}};
+              parsed{{name}}.reserve({{name}}JsonArr.size());
+
+              for (Json::ArrayIndex i = 0; i < {{name}}JsonArr.size(); ++i) {
+                  const Json::Value& {{name}}ElemJson = {{name}}JsonArr[i];
+
+                  {{#items.isPrimitiveType}}
+                    {{#items.isString}}parsed{{name}}.emplace_back({{name}}ElemJson.asString());{{/items.isString}}
+                    {{#items.isInteger}}parsed{{name}}.emplace_back(static_cast<std::int32_t>({{name}}ElemJson.asInt()));{{/items.isInteger}}
+                    {{#items.isLong}}parsed{{name}}.emplace_back(static_cast<std::int64_t>({{name}}ElemJson.asInt64()));{{/items.isLong}}
+                    {{#items.isNumber}}parsed{{name}}.emplace_back({{name}}ElemJson.asDouble());{{/items.isNumber}}
+                    {{#items.isBoolean}}parsed{{name}}.emplace_back({{name}}ElemJson.asBool());{{/items.isBoolean}}
+                    {{#items.isDate}}parsed{{name}}.emplace_back({{name}}ElemJson.asString());{{/items.isDate}}
+                    {{#items.isDateTime}}parsed{{name}}.emplace_back({{name}}ElemJson.asString());{{/items.isDateTime}}
+                    {{#items.isByteArray}}parsed{{name}}.emplace_back({{name}}ElemJson.asString());{{/items.isByteArray}}
+                    {{#items.isBinary}}parsed{{name}}.emplace_back({{name}}ElemJson.asString());{{/items.isBinary}}
+                  {{/items.isPrimitiveType}}
+                  {{^items.isPrimitiveType}}
+                    {{#items.isString}}
+                      parsed{{name}}.emplace_back({{name}}ElemJson.asString());
+                    {{/items.isString}}
+                    {{^items.isString}}
+                      {{{items.dataType}}} {{name}}Elem{};
+                      from_json({{name}}ElemJson, {{name}}Elem);
+                      parsed{{name}}.emplace_back(std::move({{name}}Elem));
+                    {{/items.isString}}
+                  {{/items.isPrimitiveType}}
+              }
+
+              o.{{name}} = std::move(parsed{{name}});
+          }
         {{/required}}
         {{^required}}
-            if (j.find("{{baseName}}") != j.end()) {
-            o.{{name}} = j.at("{{baseName}}").get<{{{dataType}}}>();
-            }
-        {{/required}}
-    {{/vars}}
-    {{#isEnum}}{{#allowableValues}}
-        auto s = j.get<{{#isInteger}}{{dataType}}{{/isInteger}}{{^isInteger}}std::string{{/isInteger}}>();
-        {{#enumVars}}
-            {{#-first}}
-                    if{{/-first}}{{^-first}}else if{{/-first}}(s == {{#isInteger}}{{value}}{{/isInteger}}{{^isInteger}}"{{value}}"{{/isInteger}}) {
-                o.value = {{classname}}::e{{classname}}::{{name}};
-                } {{#-last}} else {
-                std::stringstream ss;
-                ss << "Unexpected value " << s << " in json"
-                << " cannot be converted to enum of type"
-                << " {{classname}}::e{{classname}}";
-                throw std::invalid_argument(ss.str());
-                } {{/-last}}
-        {{/enumVars}}{{/allowableValues}}{{/isEnum}}
-        }
+          if (j.isMember("{{baseName}}")) {
+              const Json::Value& {{name}}JsonArr = j["{{baseName}}"];
+              std::vector<{{{items.dataType}}}> parsed{{name}};
+              parsed{{name}}.reserve({{name}}JsonArr.size());
 
-        } // namespace {{modelNamespace}}
+              for (Json::ArrayIndex i = 0; i < {{name}}JsonArr.size(); ++i) {
+                  const Json::Value& {{name}}ElemJson = {{name}}JsonArr[i];
+
+                  {{#items.isPrimitiveType}}
+                    {{#items.isString}}parsed{{name}}.emplace_back({{name}}ElemJson.asString());{{/items.isString}}
+                    {{#items.isInteger}}parsed{{name}}.emplace_back(static_cast<std::int32_t>({{name}}ElemJson.asInt()));{{/items.isInteger}}
+                    {{#items.isLong}}parsed{{name}}.emplace_back(static_cast<std::int64_t>({{name}}ElemJson.asInt64()));{{/items.isLong}}
+                    {{#items.isNumber}}parsed{{name}}.emplace_back({{name}}ElemJson.asDouble());{{/items.isNumber}}
+                    {{#items.isBoolean}}parsed{{name}}.emplace_back({{name}}ElemJson.asBool());{{/items.isBoolean}}
+                    {{#items.isDate}}parsed{{name}}.emplace_back({{name}}ElemJson.asString());{{/items.isDate}}
+                    {{#items.isDateTime}}parsed{{name}}.emplace_back({{name}}ElemJson.asString());{{/items.isDateTime}}
+                    {{#items.isByteArray}}parsed{{name}}.emplace_back({{name}}ElemJson.asString());{{/items.isByteArray}}
+                    {{#items.isBinary}}parsed{{name}}.emplace_back({{name}}ElemJson.asString());{{/items.isBinary}}
+                  {{/items.isPrimitiveType}}
+                  {{^items.isPrimitiveType}}
+                    {{#items.isString}}
+                      parsed{{name}}.emplace_back({{name}}ElemJson.asString());
+                    {{/items.isString}}
+                    {{^items.isString}}
+                      {{{items.dataType}}} {{name}}Elem{};
+                      from_json({{name}}ElemJson, {{name}}Elem);
+                      parsed{{name}}.emplace_back(std::move({{name}}Elem));
+                    {{/items.isString}}
+                  {{/items.isPrimitiveType}}
+              }
+
+              o.{{name}} = std::move(parsed{{name}});
+          }
+        {{/required}}
+      {{/isArray}}
+
+      {{^isArray}}
+        {{#isMap}}
+          if (j.isMember("{{baseName}}")) {
+              const Json::Value& {{name}}JsonObj = j["{{baseName}}"];
+              {{{dataType}}} parsed{{name}}; // std::map<std::string, T>
+              const auto keys = {{name}}JsonObj.getMemberNames();
+
+              for (const auto& key : keys) {
+                  const Json::Value& valueJson = {{name}}JsonObj[key];
+
+                  {{#items.isPrimitiveType}}
+                    {{#items.isString}}parsed{{name}}[key] = valueJson.asString();{{/items.isString}}
+                    {{#items.isInteger}}parsed{{name}}[key] = static_cast<std::int32_t>(valueJson.asInt());{{/items.isInteger}}
+                    {{#items.isLong}}parsed{{name}}[key] = static_cast<std::int64_t>(valueJson.asInt64());{{/items.isLong}}
+                    {{#items.isNumber}}parsed{{name}}[key] = valueJson.asDouble();{{/items.isNumber}}
+                    {{#items.isBoolean}}parsed{{name}}[key] = valueJson.asBool();{{/items.isBoolean}}
+                    {{#items.isDate}}parsed{{name}}[key] = valueJson.asString();{{/items.isDate}}
+                    {{#items.isDateTime}}parsed{{name}}[key] = valueJson.asString();{{/items.isDateTime}}
+                    {{#items.isByteArray}}parsed{{name}}[key] = valueJson.asString();{{/items.isByteArray}}
+                    {{#items.isBinary}}parsed{{name}}[key] = valueJson.asString();{{/items.isBinary}}
+                  {{/items.isPrimitiveType}}
+                  {{^items.isPrimitiveType}}
+                    {{#items.isString}}
+                      parsed{{name}}[key] = valueJson.asString();
+                    {{/items.isString}}
+                    {{^items.isString}}
+                      {{{items.dataType}}} parsedValue{};
+                      from_json(valueJson, parsedValue);
+                      parsed{{name}}[key] = std::move(parsedValue);
+                    {{/items.isString}}
+                  {{/items.isPrimitiveType}}
+              }
+
+              o.{{name}} = std::move(parsed{{name}});
+          }
+        {{/isMap}}
+
+        {{^isMap}}
+          {{#isPrimitiveType}}
+            {{#required}}
+              {{#isString}}o.{{name}} = j["{{baseName}}"].asString();{{/isString}}
+              {{#isInteger}}o.{{name}} = static_cast<std::int32_t>(j["{{baseName}}"].asInt());{{/isInteger}}
+              {{#isLong}}o.{{name}} = static_cast<std::int64_t>(j["{{baseName}}"].asInt64());{{/isLong}}
+              {{#isNumber}}o.{{name}} = j["{{baseName}}"].asDouble();{{/isNumber}}
+              {{#isBoolean}}o.{{name}} = j["{{baseName}}"].asBool();{{/isBoolean}}
+              {{#isDate}}o.{{name}} = j["{{baseName}}"].asString();{{/isDate}}
+              {{#isDateTime}}o.{{name}} = j["{{baseName}}"].asString();{{/isDateTime}}
+              {{#isByteArray}}o.{{name}} = j["{{baseName}}"].asString();{{/isByteArray}}
+              {{#isBinary}}o.{{name}} = j["{{baseName}}"].asString();{{/isBinary}}
+            {{/required}}
+            {{^required}}
+              if (j.isMember("{{baseName}}")) {
+                {{#isString}}o.{{name}} = j["{{baseName}}"].asString();{{/isString}}
+                {{#isInteger}}o.{{name}} = static_cast<std::int32_t>(j["{{baseName}}"].asInt());{{/isInteger}}
+                {{#isLong}}o.{{name}} = static_cast<std::int64_t>(j["{{baseName}}"].asInt64());{{/isLong}}
+                {{#isNumber}}o.{{name}} = j["{{baseName}}"].asDouble();{{/isNumber}}
+                {{#isBoolean}}o.{{name}} = j["{{baseName}}"].asBool();{{/isBoolean}}
+                {{#isDate}}o.{{name}} = j["{{baseName}}"].asString();{{/isDate}}
+                {{#isDateTime}}o.{{name}} = j["{{baseName}}"].asString();{{/isDateTime}}
+                {{#isByteArray}}o.{{name}} = j["{{baseName}}"].asString();{{/isByteArray}}
+                {{#isBinary}}o.{{name}} = j["{{baseName}}"].asString();{{/isBinary}}
+              }
+            {{/required}}
+          {{/isPrimitiveType}}
+          {{^isPrimitiveType}}
+            {{#isString}}
+              {{#required}}
+                o.{{name}} = j["{{baseName}}"].asString();
+              {{/required}}
+              {{^required}}
+                if (j.isMember("{{baseName}}")) {
+                  o.{{name}} = j["{{baseName}}"].asString();
+                }
+              {{/required}}
+            {{/isString}}
+            {{^isString}}
+              {{#required}}
+                from_json(j["{{baseName}}"], o.{{name}});
+              {{/required}}
+              {{^required}}
+                if (j.isMember("{{baseName}}")) {
+                  {{{dataType}}} parsedValue{};
+                  from_json(j["{{baseName}}"], parsedValue);
+                  o.{{name}} = std::move(parsedValue);
+                }
+              {{/required}}
+            {{/isString}}
+          {{/isPrimitiveType}}
+        {{/isMap}}
+      {{/isArray}}
+    {{/vars}}
+
+    {{#isEnum}}{{#allowableValues}}
+    // Parse enum scalar to container
+    auto s = {{#isInteger}}j.as{{#isLong}}Int64{{/isLong}}{{^isLong}}Int{{/isLong}}(){{/isInteger}}{{^isInteger}}j.asString(){{/isInteger}};
+    {{#enumVars}}
+      {{#-first}}
+        if{{/-first}}{{^-first}}else if{{/-first}}(s == {{#isInteger}}{{value}}{{/isInteger}}{{^isInteger}}"{{value}}"{{/isInteger}}) {
+            o.value = {{classname}}::e{{classname}}::{{name}};
+        } {{#-last}} else {
+            std::stringstream ss;
+            ss << "Unexpected value " << s << " in json"
+               << " cannot be converted to enum of type"
+               << " {{classname}}::e{{classname}}";
+            throw std::invalid_argument(ss.str());
+        } {{/-last}}
+    {{/enumVars}}{{/allowableValues}}{{/isEnum}}
+}
+
+} // namespace {{modelNamespace}}
 
 {{/model}}
 {{/models}}
