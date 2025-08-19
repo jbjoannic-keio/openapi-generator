@@ -1,25 +1,31 @@
 {{>licenseInfo}}
 #include "{{prefix}}Helpers.h"
+
 #include <regex>
+#include <limits>
+#include <algorithm>
 
 namespace {{helpersNamespace}}
 {
 
-const std::regex regexRfc3339_date(R"(^(\d{4})\-(\d{2})\-(\d{2})$)");
-const std::regex regexRfc3339_date_time(
-    R"(^(\d{4})\-(\d{2})\-(\d{2})[Tt](\d{2}):(\d{2}):(\d{2})(\.\d+)?([Zz]|([\+\-])(\d{2}):(\d{2}))$)"
-);
+// ─────────────────────────────────────────────────────────────────────────────
+//  RFC 3339 validation
+// ─────────────────────────────────────────────────────────────────────────────
 
+namespace {
+    // Anchored patterns; use regex_match (not search)
+    static const std::regex kRfc3339Date(R"(^(\d{4})\-(\d{2})\-(\d{2})$)");
+    static const std::regex kRfc3339DateTime(
+        R"(^(\d{4})\-(\d{2})\-(\d{2})[Tt](\d{2}):(\d{2}):(\d{2})(\.\d+)?([Zz]|([\+\-])(\d{2}):(\d{2}))$)"
+    );
 
-namespace
-{
     // Determine if given year is a leap year
-    // See RFC 3339, Appendix C https://tools.ietf.org/html/rfc3339#appendix-C
-    bool isLeapYear(const uint16_t year) {
+    // RFC 3339, Appendix C
+    inline bool isLeapYear(const uint16_t year) {
         return (year % 4 == 0) && ((year % 100 != 0) || (year % 400 == 0));
     }
 
-    bool validateDateValues(const uint16_t year, const uint16_t month, const uint16_t day) {
+    inline bool validateDateValues(const uint16_t year, const uint16_t month, const uint16_t day) {
         return !(
             (month == 0 || month > 12)
             || (day == 0)
@@ -29,65 +35,66 @@ namespace
         );
     }
 
-    bool validateTimeValues(const uint16_t hours, const uint16_t minutes, const uint16_t seconds) {
+    inline bool validateTimeValues(const uint16_t hours, const uint16_t minutes, const uint16_t seconds) {
+        // seconds may be 60 for leap seconds
         return (hours <= 23) && (minutes <= 59) && (seconds <= 60);
     }
 }
 
 bool validateRfc3339_date(const std::string& str) {
-    std::smatch match;
-    const bool found = std::regex_search(str, match, regexRfc3339_date);
-    return found && validateDateValues(static_cast<uint16_t>(std::stoi(match[1])),
-                                       static_cast<uint16_t>(std::stoi(match[2])),
-                                       static_cast<uint16_t>(std::stoi(match[3])));
+    std::smatch m;
+    if (!std::regex_match(str, m, kRfc3339Date)) return false;
+    return validateDateValues(
+        static_cast<uint16_t>(std::stoi(m[1])),
+        static_cast<uint16_t>(std::stoi(m[2])),
+        static_cast<uint16_t>(std::stoi(m[3]))
+    );
 }
 
 bool validateRfc3339_date_time(const std::string& str) {
-    std::smatch match;
-    const bool found = std::regex_search(str, match, regexRfc3339_date_time);
-    return found
-        && validateDateValues(static_cast<uint16_t>(std::stoi(match[1])),
-                              static_cast<uint16_t>(std::stoi(match[2])),
-                              static_cast<uint16_t>(std::stoi(match[3])))
-        && validateTimeValues(static_cast<uint16_t>(std::stoi(match[4])),
-                              static_cast<uint16_t>(std::stoi(match[5])),
-                              static_cast<uint16_t>(std::stoi(match[6])));
+    std::smatch m;
+    if (!std::regex_match(str, m, kRfc3339DateTime)) return false;
+    return validateDateValues(
+               static_cast<uint16_t>(std::stoi(m[1])),
+               static_cast<uint16_t>(std::stoi(m[2])),
+               static_cast<uint16_t>(std::stoi(m[3]))
+           )
+        && validateTimeValues(
+               static_cast<uint16_t>(std::stoi(m[4])),
+               static_cast<uint16_t>(std::stoi(m[5])),
+               static_cast<uint16_t>(std::stoi(m[6]))
+           );
 }
 
-std::string toStringValue(const std::string &value){
-    return std::string(value);
-}
+// ─────────────────────────────────────────────────────────────────────────────
+//  toStringValue
+// ─────────────────────────────────────────────────────────────────────────────
 
-std::string toStringValue(const int32_t value){
-    return std::to_string(value);
-}
+std::string toStringValue(const std::string &value){ return value; }
+std::string toStringValue(const int32_t value){ return std::to_string(value); }
+std::string toStringValue(const int64_t value){ return std::to_string(value); }
+std::string toStringValue(const bool value){ return value ? "true" : "false"; }
+std::string toStringValue(const float value){ return std::to_string(value); }
+std::string toStringValue(const double value){ return std::to_string(value); }
 
-std::string toStringValue(const int64_t value){
-    return std::to_string(value);
-}
-
-std::string toStringValue(const bool value){
-    return value ? std::string("true") : std::string("false");
-}
-
-std::string toStringValue(const float value){
-    return std::to_string(value);
-}
-
-std::string toStringValue(const double value){
-    return std::to_string(value);
-}
+// ─────────────────────────────────────────────────────────────────────────────
+//  fromStringValue
+// ─────────────────────────────────────────────────────────────────────────────
 
 bool fromStringValue(const std::string &inStr, std::string &value){
-    value = std::string(inStr);
+    value = inStr;
     return true;
 }
 
 bool fromStringValue(const std::string &inStr, int32_t &value){
     try {
-        value = std::stoi( inStr );
-    }
-    catch (const std::invalid_argument&) {
+        long long v = std::stoll(inStr);
+        if (v < std::numeric_limits<int32_t>::min() || v > std::numeric_limits<int32_t>::max())
+            return false;
+        value = static_cast<int32_t>(v);
+    } catch (const std::invalid_argument&) {
+        return false;
+    } catch (const std::out_of_range&) {
         return false;
     }
     return true;
@@ -95,31 +102,33 @@ bool fromStringValue(const std::string &inStr, int32_t &value){
 
 bool fromStringValue(const std::string &inStr, int64_t &value){
     try {
-        value = std::stol( inStr );
-    }
-    catch (const std::invalid_argument&) {
+        long long v = std::stoll(inStr);
+        if (v < (long long)std::numeric_limits<int64_t>::min() ||
+            v > (long long)std::numeric_limits<int64_t>::max())
+            return false;
+        value = static_cast<int64_t>(v);
+    } catch (const std::invalid_argument&) {
+        return false;
+    } catch (const std::out_of_range&) {
         return false;
     }
     return true;
 }
 
 bool fromStringValue(const std::string &inStr, bool &value){
-    if (inStr == "true") {
-        value = true;
-        return true;
-    }
-    if (inStr == "false") {
-        value = false;
-        return true;
-    }
+    std::string s = inStr;
+    std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c){ return (char)std::tolower(c); });
+    if (s == "true" || s == "1")  { value = true;  return true; }
+    if (s == "false"|| s == "0")  { value = false; return true; }
     return false;
 }
 
 bool fromStringValue(const std::string &inStr, float &value){
     try {
-        value = std::stof( inStr );
-    }
-    catch (const std::invalid_argument&) {
+        value = std::stof(inStr);
+    } catch (const std::invalid_argument&) {
+        return false;
+    } catch (const std::out_of_range&) {
         return false;
     }
     return true;
@@ -127,12 +136,14 @@ bool fromStringValue(const std::string &inStr, float &value){
 
 bool fromStringValue(const std::string &inStr, double &value){
     try {
-        value = std::stod( inStr );
-    }
-    catch (const std::invalid_argument&) {
+        value = std::stod(inStr);
+    } catch (const std::invalid_argument&) {
+        return false;
+    } catch (const std::out_of_range&) {
         return false;
     }
     return true;
 }
 
 } // namespace {{helpersNamespace}}
+

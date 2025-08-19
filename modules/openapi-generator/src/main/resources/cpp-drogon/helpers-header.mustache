@@ -2,7 +2,14 @@
 /*
  * {{prefix}}Helpers.h
  *
- * Generic helper utilities for generated Dro­­gon projects.
+ * Generic helper utilities for generated Drogon projects.
+ * - Model/runtime helpers (validation, JSON conversion) — usable from models
+ * - HTTP helpers (variant → HttpResponsePtr)            — used by controllers
+ *
+ * Note: If you want to keep models independent of Drogon entirely, consider
+ * splitting this into:
+ *   - {{prefix}}ModelHelpers.h  (no Drogon includes)
+ *   - {{prefix}}HttpHelpers.h   (includes Drogon, uses ModelHelpers)
  */
 
 #ifndef {{prefix}}Helpers_H_
@@ -14,9 +21,12 @@
 #include <set>
 #include <sstream>
 #include <string>
+#include <string_view>
+#include <utility>
 #include <vector>
 #include <variant>
 #include <type_traits>
+#include <stdexcept>
 
 /*  Drogon & JSON ----------------------------------------------------- */
 #include <drogon/HttpTypes.h>
@@ -27,7 +37,7 @@ namespace {{helpersNamespace}}
 {
 
 /* =======================================================================
- *  1.  Validation & utility helpers  (UNCHANGED)
+ *  1)  Validation & string-conversion helpers (declared; implemented in .cpp)
  * ===================================================================== */
 class ValidationException : public std::runtime_error
 {
@@ -38,10 +48,10 @@ public:
     ~ValidationException() override = default;
 };
 
-/// Validate a string against the full‑date definition of RFC‑3339§5.6.
+/// Validate a string against the full‑date definition of RFC‑3339 §5.6.
 bool validateRfc3339_date(const std::string& str);
 
-/// Validate a string against the date‑time definition of RFC‑3339§5.6.
+/// Validate a string against the date‑time definition of RFC‑3339 §5.6.
 bool validateRfc3339_date_time(const std::string& str);
 
 namespace sfinae_helpers
@@ -61,7 +71,7 @@ namespace sfinae_helpers
     };
 } // namespace sfinae_helpers
 
-/// Determine if a vector contains only unique elements (requires==).
+/// Determine if a vector contains only unique elements (requires ==).
 template <typename T>
 bool hasOnlyUniqueItems(const std::vector<T>& vec)
 {
@@ -70,7 +80,7 @@ bool hasOnlyUniqueItems(const std::vector<T>& vec)
     if (vec.size() <= 1)
         return true;
 
-    for (size_t i = 0; i < vec.size() - 1; ++i)
+    for (size_t i = 0; i + 1 < vec.size(); ++i)
         for (size_t j = i + 1; j < vec.size(); ++j)
             if (vec[i] == vec[j])
                 return false;
@@ -85,7 +95,7 @@ bool hasOnlyUniqueItems(const std::set<T>&)
     return true;
 }
 
-/* ----- string‑conversion helpers (unchanged) ------------------------- */
+/* ----- string‑conversion helpers (declared; implemented in .cpp) ---- */
 std::string toStringValue(const std::string &value);
 std::string toStringValue(const int32_t value);
 std::string toStringValue(const int64_t value);
@@ -106,9 +116,9 @@ bool fromStringValue(const std::vector<std::string> &inStr,
 {
     try
     {
-        for (auto & item : inStr)
+        for (const auto & item : inStr)
         {
-            T tmp;
+            T tmp{};
             if (fromStringValue(item, tmp))
                 value.push_back(tmp);
         }
@@ -135,59 +145,159 @@ bool fromStringValue(const std::string &inStr,
 }
 
 /* =======================================================================
- *  2.  NEW helper – convert Response variant → HttpResponsePtr
+ *  2)  JSON helpers (header‑only; used by controllers & models)
  * ===================================================================== */
 
-namespace detail
+inline std::string dumpJson(const Json::Value& v)
 {
-    /* SFINAE detector: does T have a first_type member?  */
-    template<typename, typename = void>
-    struct has_first_type : std::false_type {};
-    template<typename T>
-    struct has_first_type<T, std::void_t<typename T::first_type>> : std::true_type {};
+    Json::StreamWriterBuilder w;
+    w["indentation"] = ""; // compact
+    return Json::writeString(w, v);
 }
 
-/// Convert a generated `…Response` `std::variant` to a Drogon response.
-///
-/// Works for both alternatives emitted by the code‑generator:
-///   1. `std::integral_constant<drogon::HttpStatusCode, kXYZ>`
-///   2. `std::pair<std::integral_constant<Status>, Body>`
-template <typename Variant>
-drogon::HttpResponsePtr variantToHttp(const Variant &v)
+// Base overloads
+inline Json::Value toJson(const Json::Value& v) { return v; }
+inline Json::Value toJson(const std::string& s) { return Json::Value(s); }
+inline Json::Value toJson(const char* s)        { return Json::Value(s ? s : ""); }
+inline Json::Value toJson(std::nullptr_t)       { return Json::Value(); }
+inline Json::Value toJson(bool b)               { return Json::Value(b); }
+inline Json::Value toJson(std::int32_t n)       { return Json::Value(static_cast<Json::Int>(n)); }
+inline Json::Value toJson(std::int64_t n)       { return Json::Value(static_cast<Json::Int64>(n)); }
+inline Json::Value toJson(double d)             { return Json::Value(d); }
+
+// Containers
+template<class T>
+Json::Value toJson(const std::vector<T>& xs)
 {
-    using dr = drogon;
+    Json::Value a(Json::arrayValue);
+    for (const auto& x : xs) a.append(toJson(x));
+    return a;
+}
+template<class V>
+Json::Value toJson(const std::map<std::string,V>& m)
+{
+    Json::Value o(Json::objectValue);
+    for (const auto& kv : m) o[kv.first] = toJson(kv.second);
+    return o;
+}
 
-    return std::visit([](auto &&alt) -> dr::HttpResponsePtr
+// Detection helpers for models
+namespace detail {
+    template<class T, class = void>
+    struct has_member_to_json : std::false_type {};
+    template<class T>
+    struct has_member_to_json<T, std::void_t<decltype(std::declval<const T&>().to_json())>> : std::true_type {};
+
+    template<class T, class = void>
+    struct has_member_toJson : std::false_type {};
+    template<class T>
+    struct has_member_toJson<T, std::void_t<decltype(std::declval<const T&>().toJson())>> : std::true_type {};
+
+    template<class T, class = void>
+    struct has_free_to_json : std::false_type {};
+    template<class T>
+    struct has_free_to_json<T, std::void_t<decltype(
+        to_json(std::declval<Json::Value&>(), std::declval<const T&>())
+    )>> : std::true_type {};
+}
+
+// Unify model → Json::Value for any model type T:
+// 1) T::to_json()          → use it
+// 2) T::toJson()           → use it
+// 3) free to_json(j, T)    → call it and return j
+template<class T>
+Json::Value toJson(const T& t)
+{
+    if constexpr (detail::has_member_to_json<T>::value) {
+        return t.to_json();
+    } else if constexpr (detail::has_member_toJson<T>::value) {
+        return t.toJson();
+    } else if constexpr (detail::has_free_to_json<T>::value) {
+        Json::Value j;
+        to_json(j, t);  // ADL
+        return j;
+    } else {
+        // Fallback for unsupported types:
+        return Json::Value(Json::objectValue);
+    }
+}
+
+/* =======================================================================
+ *  3)  Response variant → drogon::HttpResponsePtr
+ *      (tuple<Status, ContentType, Body> | pair<Status, Body> | status-only)
+ * ===================================================================== */
+
+template<drogon::HttpStatusCode S>
+inline drogon::HttpResponsePtr makeResponse(std::integral_constant<drogon::HttpStatusCode, S>)
+{
+    auto resp = drogon::HttpResponse::newHttpResponse();
+    resp->setStatusCode(S);
+    return resp;
+}
+
+// Backward‑compat: pair<Status, Body> → JSON response
+template<drogon::HttpStatusCode S, class Body>
+inline drogon::HttpResponsePtr makeResponse(
+    const std::pair<std::integral_constant<drogon::HttpStatusCode, S>, Body>& p)
+{
+    auto resp = drogon::HttpResponse::newHttpJsonResponse(toJson(p.second));
+    resp->setStatusCode(S);
+    return resp;
+}
+
+// tuple<Status, ContentType, Body> → typed response
+template<drogon::HttpStatusCode S, drogon::ContentType C, class Body>
+inline drogon::HttpResponsePtr makeResponse(
+    const std::tuple<
+        std::integral_constant<drogon::HttpStatusCode, S>,
+        std::integral_constant<drogon::ContentType, C>,
+        Body
+    >& t)
+{
+    auto resp = drogon::HttpResponse::newHttpResponse();
+    resp->setStatusCode(S);
+    resp->setContentTypeCode(C);
+
+    const auto& body = std::get<2>(t);
+    if constexpr (C == drogon::CT_APPLICATION_JSON)
     {
-        using Alt = std::decay_t<decltype(alt)>;
-        dr::HttpResponsePtr resp;
-
-        /* ------------------------------------------------------------
-         * 1. status‑only alternative
-         * ---------------------------------------------------------- */
-        if constexpr (!detail::has_first_type<Alt>::value)
-        {
-            /* alt is an integral_constant<Status>                     */
-            constexpr dr::HttpStatusCode code = Alt::value;
-            resp = dr::HttpResponse::newHttpResponse();
-            resp->setStatusCode(code);
-            return resp;
+        resp->setBody(dumpJson(toJson(body)));
+    }
+    else
+    {
+        if constexpr (std::is_same_v<Body, std::string>) {
+            resp->setBody(body);
+        } else if constexpr (std::is_same_v<Body, std::string_view>) {
+            resp->setBody(std::string(body));
+        } else if constexpr (std::is_same_v<Body, std::vector<std::uint8_t>>) {
+            resp->setBody(std::string(reinterpret_cast<const char*>(body.data()), body.size()));
+        } else {
+            // Fallback: try JSON serialization then set that string
+            resp->setBody(dumpJson(toJson(body)));
         }
-        /* ------------------------------------------------------------
-         * 2. <status, Body> alternative
-         * ---------------------------------------------------------- */
-        else
-        {
-            constexpr dr::HttpStatusCode code = Alt::first_type::value;
-            const auto &body = alt.second;
+    }
+    return resp;
+}
 
-            Json::Value j;
-            to_json(j, body);                    // ADL: model‑specific overload
-            resp = dr::HttpResponse::newHttpJsonResponse(j);
-            resp->setStatusCode(code);
-            return resp;
-        }
-    }, v);
+struct ToHttpVisitor {
+    template<class Alt>
+    drogon::HttpResponsePtr operator()(Alt&& alt) const
+    {
+        return makeResponse(std::forward<Alt>(alt));
+    }
+};
+
+template<class Variant>
+inline drogon::HttpResponsePtr toHttpResponse(const Variant& v)
+{
+    return std::visit(ToHttpVisitor{}, v);
+}
+
+// Legacy alias (some older controllers might use this name)
+template<class Variant>
+inline drogon::HttpResponsePtr variantToHttp(const Variant& v)
+{
+    return toHttpResponse(v);
 }
 
 } // namespace {{helpersNamespace}}
