@@ -307,12 +307,10 @@ public class CppDrogonServerCodegen extends AbstractCppCodegen {
 
     private void setupSupportingFiles() {
         supportingFiles.clear();
-        // supportingFiles.add(new SupportingFile("api-base-header.mustache", "api",
-        // "ApiBase.h"));
         supportingFiles.add(new SupportingFile("helpers-header.mustache", "model", modelNamePrefix + "Helpers.h"));
         supportingFiles.add(new SupportingFile("helpers-source.mustache", "model", modelNamePrefix + "Helpers.cpp"));
-        supportingFiles
-                .add(new SupportingFile("main-api-server.mustache", "", modelNamePrefix + "main-api-server.cpp"));
+        supportingFiles.add(new SupportingFile("server-header.mustache", "", "Server.h"));
+        supportingFiles.add(new SupportingFile("server-source.mustache", "", "Server.cpp"));
         supportingFiles.add(new SupportingFile("cmake.mustache", "", "CMakeLists.txt"));
         supportingFiles.add(new SupportingFile("README.mustache", "", "README.md"));
     }

@@ -1,0 +1,46 @@
+{{>licenseInfo}}
+#pragma once
+
+#include <drogon/drogon.h>
+#include <cstdint>
+#include <memory>
+#include <optional>
+#include <stdexcept>
+#include <string>
+
+{{#apiInfo}}{{#apis}}
+#include "interfaces/{{classname}}Interface.h"   // Service interface for this tag
+{{/apis}}{{/apiInfo}}
+
+namespace {{apiNamespace}} {
+
+class Server {
+public:
+    // Services to inject into controllers (one per tag)
+    struct Services {
+    {{#apiInfo}}{{#apis}}
+        std::shared_ptr<{{classname}}Interface> {{classname}}Service;
+    {{/apis}}{{/apiInfo}}
+    };
+
+    // Register controllers with services, return app so caller can customize.
+    // Example:
+    //   auto& app = Server::Configure(svc);
+    //   app.registerPostHandlingAdvice(...);  // CORS, etc.
+    //   app.run();
+    static drogon::HttpAppFramework& Configure(
+        const Services& services,
+        const std::optional<std::string>& drogonConfig = std::nullopt);
+
+    // Convenience: configure + set threads/listener + run (blocking)
+    static void Run(const Services& services,
+                    const std::string& address = "0.0.0.0",
+                    unsigned short port = {{serverPort}}{{^serverPort}}8080{{/serverPort}},
+                    std::optional<unsigned int> threads = std::nullopt,
+                    const std::optional<std::string>& drogonConfig = std::nullopt);
+
+    // Optional graceful stop API
+    static void Stop() { drogon::app().quit(); }
+};
+
+} // namespace {{apiNamespace}}
