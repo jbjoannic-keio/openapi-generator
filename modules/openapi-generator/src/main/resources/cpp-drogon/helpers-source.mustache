@@ -4,6 +4,7 @@
 #include <regex>
 #include <limits>
 #include <algorithm>
+#include <cctype>   // <-- for std::tolower
 
 namespace {{helpersNamespace}}
 {
@@ -67,7 +68,7 @@ bool validateRfc3339_date_time(const std::string& str) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  toStringValue
+//  —  toStringValue
 // ─────────────────────────────────────────────────────────────────────────────
 
 std::string toStringValue(const std::string &value){ return value; }
@@ -146,4 +147,3 @@ bool fromStringValue(const std::string &inStr, double &value){
 }
 
 } // namespace {{helpersNamespace}}
-

@@ -1,40 +1,112 @@
-cmake_minimum_required (VERSION 3.2)
+cmake_minimum_required(VERSION 3.15)
 
-project(api-server)
-
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -pg -g3" )
-
-{{#addExternalLibs}}
-include(ExternalProject)
-
-set(EXTERNAL_INSTALL_LOCATION ${CMAKE_CURRENT_SOURCE_DIR}/external)
-
-ExternalProject_Add(PISTACHE
-    GIT_REPOSITORY https://github.com/pistacheio/pistache.git
-    BUILD_IN_SOURCE true
-    INSTALL_COMMAND meson setup build --prefix=${EXTERNAL_INSTALL_LOCATION} --libdir=lib && meson install -C build
+# ------------------------------
+# Project
+# ------------------------------
+project(
+  {{projectName}}{{^projectName}}openapi-drogon-server{{/projectName}}
+  LANGUAGES CXX
 )
 
-ExternalProject_Add(NLOHMANN
-    GIT_REPOSITORY https://github.com/nlohmann/json.git
-    CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${EXTERNAL_INSTALL_LOCATION} -DJSON_BuildTests=OFF
+# Build a shared library by default (recommended)
+set(BUILD_SHARED_LIBS ON)
+
+# C++ standard & warnings
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+if (MSVC)
+  add_compile_options(/W4)
+else()
+  add_compile_options(-Wall -Wextra -Wpedantic)
+endif()
+
+# ------------------------------
+# Dependencies
+# ------------------------------
+find_package(Drogon CONFIG REQUIRED)    # Drogon::Drogon
+find_package(JsonCpp CONFIG QUIET)
+if (NOT TARGET JsonCpp::JsonCpp)
+  find_package(jsoncpp CONFIG QUIET)    # some distros export jsoncpp_lib
+endif()
+
+# ------------------------------
+# Sources
+# ------------------------------
+file(GLOB_RECURSE SERVER_SRCS
+  ${CMAKE_CURRENT_SOURCE_DIR}/api/*.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/model/*.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/Server.cpp
 )
 
-include_directories(${EXTERNAL_INSTALL_LOCATION}/include)
-link_directories(${EXTERNAL_INSTALL_LOCATION}/lib)
-{{/addExternalLibs}}
+# ------------------------------
+# Library target
+# ------------------------------
+add_library(${PROJECT_NAME} ${SERVER_SRCS})
 
-include_directories(model)
-include_directories(api)
-include_directories(impl)
-
-file(GLOB SRCS
-    ${CMAKE_CURRENT_SOURCE_DIR}/api/*.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/impl/*.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/model/*.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp
+# Public headers (for build & install consumers)
+target_include_directories(${PROJECT_NAME}
+  PUBLIC
+    # When consuming from the build tree:
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/api>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/interfaces>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/model>
+    # When consuming after installation:
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME}>
 )
 
-add_executable(${PROJECT_NAME} ${SRCS} )
-{{#addExternalLibs}}add_dependencies(${PROJECT_NAME} PISTACHE NLOHMANN){{/addExternalLibs}}
-target_link_libraries(${PROJECT_NAME} pistache pthread)
+target_link_libraries(${PROJECT_NAME}
+  PUBLIC
+    Drogon::Drogon
+)
+
+if (TARGET JsonCpp::JsonCpp)
+  target_link_libraries(${PROJECT_NAME} PUBLIC JsonCpp::JsonCpp)
+elseif (TARGET jsoncpp_lib)
+  target_link_libraries(${PROJECT_NAME} PUBLIC jsoncpp_lib)
+endif()
+
+find_package(Threads REQUIRED)
+target_link_libraries(${PROJECT_NAME} PUBLIC Threads::Threads)
+
+# ------------------------------
+# Install (headers + target export)
+# ------------------------------
+include(GNUInstallDirs)
+
+install(TARGETS ${PROJECT_NAME}
+        EXPORT ${PROJECT_NAME}Targets
+        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+
+# Install headers under include/<projectName>/...
+install(DIRECTORY
+  ${CMAKE_CURRENT_SOURCE_DIR}/api
+  ${CMAKE_CURRENT_SOURCE_DIR}/interfaces
+  ${CMAKE_CURRENT_SOURCE_DIR}/model
+  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME}
+  FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp"
+)
+
+# Export targets for downstream find_package()
+install(EXPORT ${PROJECT_NAME}Targets
+        FILE ${PROJECT_NAME}Targets.cmake
+        NAMESPACE ${PROJECT_NAME}::
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME})
+
+# ------------------------------
+# (Optional) demo/test runner
+# ------------------------------
+option(BUILD_PETSTORE_DEMO "Build a tiny demo main" OFF)
+if (BUILD_PETSTORE_DEMO)
+  add_executable(petstore_demo examples/RunPetstore.cpp)
+  target_link_libraries(petstore_demo PRIVATE ${PROJECT_NAME})
+  target_include_directories(petstore_demo PRIVATE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/api>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/interfaces>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/model>
+  )
+endif()

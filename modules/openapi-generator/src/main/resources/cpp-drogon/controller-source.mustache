@@ -1,155 +1,221 @@
 {{>licenseInfo}}
 {{#operations}}
-    #include "{{classname}}.h"
-    #include "{{prefix}}Helpers.h"
-    #include <json/json.h>
+#include "{{classname}}.h"
+#include "{{prefix}}Helpers.h"
+#include <json/json.h>
+#include <memory>
+#include <utility>
 
-    namespace {{apiNamespace}} {
+namespace {{apiNamespace}} {
 
-    using namespace {{helpersNamespace}};
-    {{#hasModelImport}}using namespace {{modelNamespace}};{{/hasModelImport}}
+using {{helpersNamespace}}::ValidationException;
+using drogon::HttpStatusCode;
 
-    const std::string {{classname}}::base = "{{basePathWithoutHost}}";
+/* ------------------------------------------------------------------ */
+/*  Base prefix                                                        */
+/* ------------------------------------------------------------------ */
+const std::string {{classname}}::base = "{{basePathWithoutHost}}";
 
-    /* ------------------------------------------------------------------ */
-    /*  Generic helpers                                                    */
-    /* ------------------------------------------------------------------ */
+/* ------------------------------------------------------------------ */
+/*  Generic error helpers                                              */
+/* ------------------------------------------------------------------ */
 
-    void {{classname}}::handleParsingException(
+void {{classname}}::handleParsingException(
     const std::exception& ex,
     std::function<void (const drogon::HttpResponsePtr &)> &&cb) const noexcept
-        {
-        auto [status, body] = handleParsingException(ex);
-        auto resp = drogon::HttpResponse::newHttpResponse(body);
-        resp->setStatusCode(status);
-        cb(resp);
-        }
+{
+    auto [status, body] = handleParsingException(ex);
+    auto resp = drogon::HttpResponse::newHttpResponse();
+    resp->setStatusCode(status);
+    resp->setContentTypeCode(drogon::CT_TEXT_PLAIN);
+    resp->setBody(body);
+    cb(resp);
+}
 
-        std::pair<drogon::HttpStatusCode, std::string>
-    {{classname}}::handleParsingException(const std::exception& ex) const noexcept
-        {
-        // classify without rethrowing
-        if (dynamic_cast<const Json::Exception*>(&ex))
+std::pair<drogon::HttpStatusCode, std::string>
+{{classname}}::handleParsingException(const std::exception& ex) const noexcept
+{
+    // classify without rethrowing
+    if (dynamic_cast<const Json::Exception*>(&ex))
         return {drogon::k400BadRequest, ex.what()};
-        if (dynamic_cast<const ValidationException*>(&ex))
+    if (dynamic_cast<const ValidationException*>(&ex))
         return {drogon::k400BadRequest, ex.what()};
-        return {drogon::k500InternalServerError, ex.what()};
+    return {drogon::k500InternalServerError, ex.what()};
+}
+
+void {{classname}}::handleOperationException(
+    const std::exception& ex,
+    std::function<void (const drogon::HttpResponsePtr &)> &&cb) const noexcept
+{
+    auto [status, body] = handleOperationException(ex);
+    auto resp = drogon::HttpResponse::newHttpResponse();
+    resp->setStatusCode(status);
+    resp->setContentTypeCode(drogon::CT_TEXT_PLAIN);
+    resp->setBody(body);
+    cb(resp);
+}
+
+std::pair<drogon::HttpStatusCode, std::string>
+{{classname}}::handleOperationException(const std::exception& ex) const noexcept
+{
+    return {drogon::k500InternalServerError, ex.what()};
+}
+
+/* ------------------------------------------------------------------ */
+/*  One method per operation                                          */
+/* ------------------------------------------------------------------ */
+{{#operation}}
+/* ---------- {{operationId}} ---------- */
+void {{classname}}::{{vendorExtensions.operationIdSnakeCase}}_handler(
+    const drogon::HttpRequestPtr& req,
+    std::function<void (const drogon::HttpResponsePtr &)> &&cb
+    {{#pathParams}}, const {{{dataType}}}& path_{{paramName}}{{/pathParams}}
+){
+    try {
+{{#vendorExtensions.x-codegen-drogon-is-parsing-supported}}
+        /* -------- parameter extraction -------- */
+
+        {{#hasBodyParam}}
+        {{#bodyParam}}
+        {{^isPrimitiveType}}
+        // Body: JSON → {{dataType}}
+        {{{dataType}}} {{paramName}};
+        try {
+            // Make helpers' container overloads visible; models still resolve via ADL.
+            using {{helpersNamespace}}::from_json;
+
+            if (auto json = req->getJsonObject()) {
+                from_json(*json, {{paramName}});
+            } else {
+                Json::CharReaderBuilder b;
+                std::unique_ptr<Json::CharReader> reader(b.newCharReader());
+                Json::Value jsonBody;
+                std::string errs;
+                const char* data = req->bodyData();
+                const size_t len = req->bodyLength();
+                if (!reader->parse(data, data + len, &jsonBody, &errs)) {
+                    throw std::invalid_argument("Invalid JSON body");
+                }
+                from_json(jsonBody, {{paramName}});
+            }
+
+            // Validate only if the type provides validate(); no-op otherwise
+            {{helpersNamespace}}::autoValidate({{paramName}});
+        } catch (const std::exception& e) {
+            handleParsingException(e, std::move(cb));
+            return;
         }
+        {{/isPrimitiveType}}
+        {{/bodyParam}}
+        {{/hasBodyParam}}
 
-
-        void {{classname}}::handleOperationException(
-        const std::exception& ex,
-        std::function<void (const drogon::HttpResponsePtr &)> &&cb) const noexcept
+        {{#hasQueryParams}}
+        // --- query params ---
+        {{#queryParams}}
+        {{#isOptional}}
+        {{{dataType}}} {{paramName}}{};   // std::optional<Inner>
         {
-        auto [status, body] = handleOperationException(ex);
-        auto resp = drogon::HttpResponse::newHttpResponse(body);
-        resp->setStatusCode(status);
-        cb(resp);
+            const auto _q = req->getParameter("{{baseName}}");
+            if (!_q.empty()) {
+                typename {{{dataType}}}::value_type _tmp{};
+                if (!{{helpersNamespace}}::fromStringValue(_q, _tmp)) {
+                    throw std::invalid_argument("Invalid value for query parameter '{{baseName}}'");
+                }
+                {{paramName}} = std::move(_tmp);
+            }
         }
-
-        std::pair<drogon::HttpStatusCode, std::string>
-    {{classname}}::handleOperationException(const std::exception& ex) const noexcept {
-        return {drogon::k500InternalServerError, ex.what()};
+        {{/isOptional}}
+        {{^isOptional}}
+        {{{dataType}}} {{paramName}}{};
+        {
+            const auto _q = req->getParameter("{{baseName}}");
+            if (_q.empty()) {
+                throw std::invalid_argument("Missing required query parameter '{{baseName}}'");
+            }
+            if (!{{helpersNamespace}}::fromStringValue(_q, {{paramName}})) {
+                throw std::invalid_argument("Invalid value for query parameter '{{baseName}}'");
+            }
         }
+        {{/isOptional}}
+        {{/queryParams}}
+        {{/hasQueryParams}}
 
-        /* ------------------------------------------------------------------ */
-        /*  One method per operation                                          */
-        /* ------------------------------------------------------------------ */
-    {{#operation}}
-            /* ---------- {{operationId}} ---------- */
-            void {{classname}}::{{vendorExtensions.operationIdSnakeCase}}_handler(
-            const drogon::HttpRequestPtr& req,
-            std::function<void (const drogon::HttpResponsePtr &)> &&cb
-        {{#pathParams}}, const {{{dataType}}}& path_{{paramName}}{{/pathParams}}
-            ) {
-            try {
-        {{#vendorExtensions.x-codegen-drogon-is-parsing-supported}}
-                /* -------- parameter extraction -------- */
-            {{#hasBodyParam}}
-                {{#bodyParam}}
-                    {{^isPrimitiveType}}
-                        {{baseType}} {{paramName}};
-                            try {
-                            Json::Value jsonBody;
-                            Json::Reader reader;
-                            if (!reader.parse(req->getBody(), jsonBody))
-                            throw std::invalid_argument("Invalid JSON body");
-                            from_json(jsonBody, {{paramName}});
-                        {{paramName}}.validate();
-                            } catch (const std::exception& e) {
-                            handleParsingException(e, std::move(cb));
-                            return;
-                            }
-                    {{/isPrimitiveType}}
-                {{/bodyParam}}
-            {{/hasBodyParam}}
+        {{#hasHeaderParams}}
+        // --- header params ---
+        {{#headerParams}}
+        {{#isOptional}}
+        {{{dataType}}} {{paramName}}{};   // std::optional<Inner>
+        {
+            const auto _h = req->getHeader("{{baseName}}");
+            if (!_h.empty()) {
+                typename {{{dataType}}}::value_type _tmp{};
+                if (!{{helpersNamespace}}::fromStringValue(_h, _tmp)) {
+                    throw std::invalid_argument("Invalid value for header '{{baseName}}'");
+                }
+                {{paramName}} = std::move(_tmp);
+            }
+        }
+        {{/isOptional}}
+        {{^isOptional}}
+        {{{dataType}}} {{paramName}}{};
+        {
+            const auto _h = req->getHeader("{{baseName}}");
+            if (_h.empty()) {
+                throw std::invalid_argument("Missing required header '{{baseName}}'");
+            }
+            if (!{{helpersNamespace}}::fromStringValue(_h, {{paramName}})) {
+                throw std::invalid_argument("Invalid value for header '{{baseName}}'");
+            }
+        }
+        {{/isOptional}}
+        {{/headerParams}}
+        {{/hasHeaderParams}}
 
-            {{#hasQueryParams}}
-                {{#queryParams}}
-                        std::optional<{{{dataType}}}> {{paramName}};
-                        {
-                        auto _q = req->getParameter("{{baseName}}");
-                        if (!_q.empty()) {
-                    {{{dataType}}} tmp;
-                        if (fromStringValue(_q, tmp))
-                    {{paramName}} = tmp;
-                        }
-                        }
-                {{/queryParams}}
-            {{/hasQueryParams}}
-
-            {{#hasHeaderParams}}
-                {{#headerParams}}
-                        std::string header_{{paramName}} = req->getHeader("{{baseName}}");
-                    {{#isPrimitiveType}}
-                        {{#isInteger}} std::int64_t {{paramName}} = std::stoll(header_{{paramName}}); {{/isInteger}}
-                        {{#isNumber}}  double       {{paramName}} = std::stod (header_{{paramName}}); {{/isNumber}}
-                        {{#isBoolean}} bool         {{paramName}} = (header_{{paramName}}=="true" || header_{{paramName}}=="1"); {{/isBoolean}}
-                        {{#isString}}  std::string  {{paramName}} = header_{{paramName}}; {{/isString}}
-                    {{/isPrimitiveType}}
-                {{/headerParams}}
-            {{/hasHeaderParams}}
-
-                /* -------- delegate to service -------- */
-            {{operationId}}Response respVariant;
-                service->{{vendorExtensions.operationIdSnakeCase}}(
+        /* -------- delegate to service -------- */
+        typename {{classname}}Interface::{{operationId}}Response respVariant;
+        service->{{vendorExtensions.operationIdSnakeCase}}(
             {{#allParams}}
-                {{#isHeaderParam}}{{paramName}}{{/isHeaderParam}}
-                {{#isQueryParam}}{{paramName}}{{/isQueryParam}}
-                {{#isPathParam}}path_{{paramName}}{{/isPathParam}}
-                {{#isBodyParam}}{{paramName}}{{/isBodyParam}}{{^-last}}, {{/-last}}
+            {{#isHeaderParam}}{{paramName}}{{/isHeaderParam}}
+            {{#isQueryParam}}{{paramName}}{{/isQueryParam}}
+            {{#isPathParam}}path_{{paramName}}{{/isPathParam}}
+            {{#isBodyParam}}{{paramName}}{{/isBodyParam}}{{^-last}}, {{/-last}}
             {{/allParams}}
-                , respVariant);
+            {{#hasParams}}, {{/hasParams}}
+            respVariant
+        );
 
-                /* -------- serialize & return -------- */
-                auto resp = {{helpersNamespace}}::variantToHttp(respVariant);
-                cb(resp);
-        {{/vendorExtensions.x-codegen-drogon-is-parsing-supported}}
-
-        {{^vendorExtensions.x-codegen-drogon-is-parsing-supported}}
-                /* Fallback: give raw request to service (but still pass path params). A param is a form field, a file upload or cookie param. */
-            /*Or any other content that is not handled.*/
-            {{operationId}}Response respVariant;
-                service->{{vendorExtensions.operationIdSnakeCase}}(
-                req, std::move(cb){{#pathParams}}, path_{{paramName}}{{/pathParams}}, respVariant);
-        {{/vendorExtensions.x-codegen-drogon-is-parsing-supported}}
-
-            } catch (const std::exception& e) {
-            auto resp = drogon::HttpResponse::newHttpResponse(e.what());
-            resp->setStatusCode(drogon::k500InternalServerError);
-            cb(resp);
-            }
-            }
-    {{/operation}}
-
-        void {{classname}}::{{classnameSnakeLowerCase}}_default_handler(
-        const drogon::HttpRequestPtr& /*req*/,
-        std::function<void (const drogon::HttpResponsePtr &)> &&cb)
-        {
-        auto resp = drogon::HttpResponse::newHttpResponse("The requested method does not exist");
-        resp->setStatusCode(drogon::k404NotFound);
+        /* -------- serialize & return -------- */
+        auto resp = {{helpersNamespace}}::variantToHttp(respVariant);
         cb(resp);
-        }
+{{/vendorExtensions.x-codegen-drogon-is-parsing-supported}}
 
-        } // namespace {{apiNamespace}}
+{{^vendorExtensions.x-codegen-drogon-is-parsing-supported}}
+        // Fallback: give raw request to service (e.g., multipart/form-data, file).
+        // The service may choose to call the callback directly.
+        typename {{classname}}Interface::{{operationId}}Response respVariant;
+        service->{{vendorExtensions.operationIdSnakeCase}}(
+            req, std::move(cb){{#pathParams}}, path_{{paramName}}{{/pathParams}}, respVariant
+        );
+        return;
+{{/vendorExtensions.x-codegen-drogon-is-parsing-supported}}
+
+    } catch (const std::exception& e) {
+        // Operation-level exceptions (not parsing)
+        handleOperationException(e, std::move(cb));
+    }
+}
+{{/operation}}
+
+void {{classname}}::{{classnameSnakeLowerCase}}_default_handler(
+    const drogon::HttpRequestPtr& /*req*/,
+    std::function<void (const drogon::HttpResponsePtr &)> &&cb)
+{
+    auto resp = drogon::HttpResponse::newHttpResponse();
+    resp->setStatusCode(drogon::k404NotFound);
+    resp->setContentTypeCode(drogon::CT_TEXT_PLAIN);
+    resp->setBody("The requested method does not exist");
+    cb(resp);
+}
+
+} // namespace {{apiNamespace}}
 {{/operations}}

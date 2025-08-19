@@ -665,7 +665,20 @@ public class CppDrogonServerCodegen extends AbstractCppCodegen {
             }
 
             boolean isStringOrDate = op.bodyParam.isString || op.bodyParam.isDate;
-            op.bodyParam.vendorExtensions.put("x-codegen-drogon-is-string-or-date", isStringOrDate);
+            // Ensure fully-qualified model type for single-model request bodies (not
+            // containers)
+            // Detect containers by looking at the C++ type (e.g., "std::vector<...>",
+            // "std::map<...>", "std::set<...>")
+            String dt = op.bodyParam.dataType;
+            boolean isStdContainer = dt != null && (dt.startsWith("std::vector<") ||
+                    dt.startsWith("std::map<") ||
+                    dt.startsWith("std::set<"));
+            if (!op.bodyParam.isPrimitiveType && !isStdContainer) {
+                if (dt != null && !dt.startsWith("std::") && !dt.contains("::")) {
+                    op.bodyParam.dataType = prefixWithNameSpaceIfNeeded(dt);
+                }
+            }
+
         }
 
         boolean consumeJson = false;

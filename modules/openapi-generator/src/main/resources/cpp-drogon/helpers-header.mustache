@@ -5,11 +5,6 @@
  * Generic helper utilities for generated Drogon projects.
  * - Model/runtime helpers (validation, JSON conversion) — usable from models
  * - HTTP helpers (variant → HttpResponsePtr)            — used by controllers
- *
- * Note: If you want to keep models independent of Drogon entirely, consider
- * splitting this into:
- *   - {{prefix}}ModelHelpers.h  (no Drogon includes)
- *   - {{prefix}}HttpHelpers.h   (includes Drogon, uses ModelHelpers)
  */
 
 #ifndef {{prefix}}Helpers_H_
@@ -27,6 +22,7 @@
 #include <variant>
 #include <type_traits>
 #include <stdexcept>
+#include <optional>
 
 /*  Drogon & JSON ----------------------------------------------------- */
 #include <drogon/HttpTypes.h>
@@ -155,7 +151,7 @@ inline std::string dumpJson(const Json::Value& v)
     return Json::writeString(w, v);
 }
 
-// Base overloads
+// ---------- toJson: base overloads ----------
 inline Json::Value toJson(const Json::Value& v) { return v; }
 inline Json::Value toJson(const std::string& s) { return Json::Value(s); }
 inline Json::Value toJson(const char* s)        { return Json::Value(s ? s : ""); }
@@ -165,23 +161,14 @@ inline Json::Value toJson(std::int32_t n)       { return Json::Value(static_cast
 inline Json::Value toJson(std::int64_t n)       { return Json::Value(static_cast<Json::Int64>(n)); }
 inline Json::Value toJson(double d)             { return Json::Value(d); }
 
-// Containers
+// ---------- toJson: std::optional ----------
 template<class T>
-Json::Value toJson(const std::vector<T>& xs)
+Json::Value toJson(const std::optional<T>& ov)
 {
-    Json::Value a(Json::arrayValue);
-    for (const auto& x : xs) a.append(toJson(x));
-    return a;
-}
-template<class V>
-Json::Value toJson(const std::map<std::string,V>& m)
-{
-    Json::Value o(Json::objectValue);
-    for (const auto& kv : m) o[kv.first] = toJson(kv.second);
-    return o;
+    return ov ? toJson(*ov) : Json::Value(); // null when not set
 }
 
-// Detection helpers for models
+// ---------- ADL detection for model free to_json / from_json ----------
 namespace detail {
     template<class T, class = void>
     struct has_member_to_json : std::false_type {};
@@ -199,12 +186,16 @@ namespace detail {
     struct has_free_to_json<T, std::void_t<decltype(
         to_json(std::declval<Json::Value&>(), std::declval<const T&>())
     )>> : std::true_type {};
+
+    template<class T, class = void>
+    struct has_free_from_json : std::false_type {};
+    template<class T>
+    struct has_free_from_json<T, std::void_t<decltype(
+        from_json(std::declval<const Json::Value&>(), std::declval<T&>())
+    )>> : std::true_type {};
 }
 
-// Unify model → Json::Value for any model type T:
-// 1) T::to_json()          → use it
-// 2) T::toJson()           → use it
-// 3) free to_json(j, T)    → call it and return j
+// ---------- toJson: models (use member or free function if present) ----------
 template<class T>
 Json::Value toJson(const T& t)
 {
@@ -214,7 +205,7 @@ Json::Value toJson(const T& t)
         return t.toJson();
     } else if constexpr (detail::has_free_to_json<T>::value) {
         Json::Value j;
-        to_json(j, t);  // ADL
+        to_json(j, t);  // ADL into model namespace
         return j;
     } else {
         // Fallback for unsupported types:
@@ -222,10 +213,124 @@ Json::Value toJson(const T& t)
     }
 }
 
+// ---------- toJson: containers ----------
+template<class T>
+Json::Value toJson(const std::vector<T>& xs)
+{
+    Json::Value a(Json::arrayValue);
+    for (const auto& x : xs) a.append(toJson(x));
+    return a;
+}
+template<class T>
+Json::Value toJson(const std::set<T>& xs)
+{
+    Json::Value a(Json::arrayValue);
+    for (const auto& x : xs) a.append(toJson(x));
+    return a;
+}
+template<class V>
+Json::Value toJson(const std::map<std::string,V>& m)
+{
+    Json::Value o(Json::objectValue);
+    for (const auto& kv : m) o[kv.first] = toJson(kv.second);
+    return o;
+}
+
+// ---------- from_json: scalars ----------
+inline void from_json(const Json::Value& j, std::string& v) { v = j.asString(); }
+inline void from_json(const Json::Value& j, bool& v)        { v = j.asBool(); }
+inline void from_json(const Json::Value& j, std::int32_t& v){ v = j.asInt(); }
+inline void from_json(const Json::Value& j, std::int64_t& v){ v = static_cast<std::int64_t>(j.asInt64()); }
+inline void from_json(const Json::Value& j, double& v)      { v = j.asDouble(); }
+
+// ---------- from_json: std::optional ----------
+template<class T>
+inline void from_json(const Json::Value& j, std::optional<T>& ov)
+{
+    if (j.isNull()) { ov.reset(); return; }
+    T tmp{};
+    from_json(j, tmp);
+    ov = std::move(tmp);
+}
+
+// ---------- from_json: containers ----------
+template<class T>
+inline void from_json(const Json::Value& j, std::vector<T>& v)
+{
+    if (!j.isArray()) throw std::invalid_argument("Expected JSON array");
+    v.clear();
+    v.reserve(j.size());
+    for (Json::ArrayIndex i = 0; i < j.size(); ++i) {
+        T elem{};
+        from_json(j[i], elem);           // ADL into model or our overloads
+        v.emplace_back(std::move(elem));
+    }
+}
+
+template<class T>
+inline void from_json(const Json::Value& j, std::set<T>& v)
+{
+    if (!j.isArray()) throw std::invalid_argument("Expected JSON array");
+    v.clear();
+    for (Json::ArrayIndex i = 0; i < j.size(); ++i) {
+        T elem{};
+        from_json(j[i], elem);
+        v.insert(std::move(elem));
+    }
+}
+
+template<class T>
+inline void from_json(const Json::Value& j, std::map<std::string, T>& v)
+{
+    if (!j.isObject()) throw std::invalid_argument("Expected JSON object");
+    v.clear();
+    const auto keys = j.getMemberNames();
+    for (const auto& key : keys) {
+        T elem{};
+        from_json(j[key], elem);
+        v.emplace(key, std::move(elem));
+    }
+}
+
+// ---------- from_json: models (free function via ADL if available) ----------
+template<class T>
+inline std::enable_if_t<detail::has_free_from_json<T>::value, void>
+from_json_adl(const Json::Value& j, T& v)
+{
+    // Unqualified call to enable ADL into the model namespace:
+    from_json(j, v);
+}
+
+// ---------- validate() detection and helper ----------
+namespace detail {
+    template<class T, class = void>
+    struct has_member_validate : std::false_type {};
+    template<class T>
+    struct has_member_validate<T, std::void_t<decltype(std::declval<const T&>().validate())>> : std::true_type {};
+}
+
+template<class T>
+inline void autoValidate(const T& v)
+{
+    if constexpr (detail::has_member_validate<T>::value) {
+        v.validate();
+    }
+}
+
 /* =======================================================================
  *  3)  Response variant → drogon::HttpResponsePtr
  *      (tuple<Status, ContentType, Body> | pair<Status, Body> | status-only)
  * ===================================================================== */
+
+namespace detail {
+inline drogon::HttpResponsePtr badRequest(const std::string& what) {
+    auto r = drogon::HttpResponse::newHttpResponse();
+    r->setStatusCode(drogon::k400BadRequest);
+    r->setContentTypeCode(drogon::CT_TEXT_PLAIN);
+    r->setBody(what);
+    return r;
+}
+} // namespace detail
 
 template<drogon::HttpStatusCode S>
 inline drogon::HttpResponsePtr makeResponse(std::integral_constant<drogon::HttpStatusCode, S>)
