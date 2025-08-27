@@ -322,6 +322,7 @@ void from_json(const Json::Value& j, {{classname}}& o)
                   {{#items.isLong}}   parsed{{name}}.emplace_back(static_cast<std::int64_t>({{name}}ElemJson.asInt64()));{{/items.isLong}}
                   {{#items.isNumber}} parsed{{name}}.emplace_back({{name}}ElemJson.asDouble());{{/items.isNumber}}
                   {{#items.isBoolean}}parsed{{name}}.emplace_back({{name}}ElemJson.asBool());{{/items.isBoolean}}
+                  {{#items.isFloat}} parsed{{name}}.emplace_back({{name}}ElemJson.asFloat());{{/items.isFloat}}
 
                   {{#items.isString}}   parsed{{name}}.emplace_back({{name}}ElemJson.asString());{{/items.isString}}
                   {{#items.isDate}}     parsed{{name}}.emplace_back({{name}}ElemJson.asString());{{/items.isDate}}
@@ -329,11 +330,11 @@ void from_json(const Json::Value& j, {{classname}}& o)
                   {{#items.isByteArray}}parsed{{name}}.emplace_back({{name}}ElemJson.asString());{{/items.isByteArray}}
                   {{#items.isBinary}}   parsed{{name}}.emplace_back({{name}}ElemJson.asString());{{/items.isBinary}}
 
-                  {{^items.isInteger}}{{^items.isLong}}{{^items.isNumber}}{{^items.isBoolean}}{{^items.isString}}{{^items.isDate}}{{^items.isDateTime}}{{^items.isByteArray}}{{^items.isBinary}}
+                  {{^items.isInteger}}{{^items.isLong}}{{^items.isNumber}}{{^items.isFloat}}{{^items.isBoolean}}{{^items.isString}}{{^items.isDate}}{{^items.isDateTime}}{{^items.isByteArray}}{{^items.isBinary}}
                     {{{items.dataType}}} {{name}}Elem{};
                     from_json({{name}}ElemJson, {{name}}Elem);
                     parsed{{name}}.emplace_back(std::move({{name}}Elem));
-                  {{/items.isBinary}}{{/items.isByteArray}}{{/items.isDateTime}}{{/items.isDate}}{{/items.isString}}{{/items.isBoolean}}{{/items.isNumber}}{{/items.isLong}}{{/items.isInteger}}
+                  {{/items.isBinary}}{{/items.isByteArray}}{{/items.isDateTime}}{{/items.isDate}}{{/items.isString}}{{/items.isBoolean}}{{/items.isFloat}}{{/items.isNumber}}{{/items.isLong}}{{/items.isInteger}}
               }
 
               o.{{name}} = std::move(parsed{{name}});
