@@ -37,18 +37,24 @@ namespace detail {
 
     //TO JSON
 
-    // T t.to_json()
+    // class T { Json::Value to_json() const; };
     template<class T, class = void>
     struct has_member_to_json : std::false_type {};
+    {{! template<class T>
+    struct has_member_to_json<T, std::void_t<decltype(std::declval<const T&>().to_json())>> : std::true_type {}; }}
     template<class T>
-    struct has_member_to_json<T, std::void_t<decltype(std::declval<const T&>().to_json())>> : std::true_type {};
+    struct has_member_to_json<T, std::enable_if_t<std::is_same<decltype(std::declval<const T&>().to_json()), Json::Value>::value>> : std::true_type {};
 
-
+    // class T { Json::Value toJson() const; };
     template<class T, class = void>
     struct has_member_toJson : std::false_type {};
+    {{! template<class T>
+    struct has_member_toJson<T, std::void_t<decltype(std::declval<const T&>().toJson())>> : std::true_type {}; }}
     template<class T>
-    struct has_member_toJson<T, std::void_t<decltype(std::declval<const T&>().toJson())>> : std::true_type {};
+    struct has_member_toJson<T, std::enable_if_t<std::is_same<decltype(std::declval<const T&>().toJson()), Json::Value>::value>> : std::true_type {};
 
+    // class T {};
+    // to_json(Json::Value&, const T&);
     template<class T, class = void>
     struct has_free_to_json : std::false_type {};
     template<class T>
@@ -56,6 +62,9 @@ namespace detail {
         to_json(std::declval<Json::Value&>(), std::declval<const T&>())
     )>> : std::true_type {};
 
+
+    // class T {};
+    // toJson(Json::Value&, const T&);
     template<class T, class = void>
     struct has_free_toJson : std::false_type {};
     template<class T>
@@ -63,7 +72,13 @@ namespace detail {
         toJson(std::declval<Json::Value&>(), std::declval<const T&>())
     )>> : std::true_type {};
 
-    // Detection of  functions like static T from_json(const Json::Value& json)
+
+
+    // FROM JSON
+
+
+
+    // class T { static T from_json(const Json::Value&); };
     template<class T, class = void>
     struct has_static_from_json : std::false_type {};
     template<class T>
@@ -72,26 +87,25 @@ namespace detail {
     >> : std::true_type {};
 
 
-
-    // FROM JSON
-
+    // class T { static T fromJson(const Json::Value&); };
     template<class T, class = void>
     struct has_static_fromJson : std::false_type {};
-
     template<class T>
     struct has_static_fromJson<T, std::void_t<
         decltype(T::fromJson(std::declval<const Json::Value&>()))
     >> : std::true_type {};
 
-    // Détection d'une fonction libre from_json(Json::Value, T&)
+    // class T {};
+    // from_json(const Json::Value&, T&);
     template<class T, class = void>
     struct has_free_from_json : std::false_type {};
-
     template<class T>
     struct has_free_from_json<T, std::void_t<
         decltype(from_json(std::declval<const Json::Value&>(), std::declval<T&>()))
     >> : std::true_type {};
 
+    // class T {};
+    // fromJson(const Json::Value&, T&);
     template<class T, class = void>
     struct has_free_fromJson : std::false_type {};
     template<class T>
@@ -99,8 +113,6 @@ namespace detail {
         decltype(fromJson(std::declval<const Json::Value&>(), std::declval<T&>()))
     >> : std::true_type {};
 } // namespace detail
-
-
 
 namespace toJson
 {
