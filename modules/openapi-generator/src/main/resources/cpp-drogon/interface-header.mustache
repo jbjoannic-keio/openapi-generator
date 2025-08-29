@@ -25,29 +25,29 @@ namespace {{apiNamespace}} {
 
 class {{declspec}}{{classname}}Interface {
 public:
-    virtual ~{{classname}}Interface() = default;
 
-    /* ---------- abstract operations ---------- */
-    {{#operation}}
-    /// <summary>{{summary}}</summary>
-    {{#notes}}/// <remarks>{{notes}}</remarks>{{/notes}}
+virtual ~{{classname}}Interface() = default;
 
-    {{#vendorExtensions.x-codegen-drogon-is-parsing-supported}}
-    virtual void {{vendorExtensions.operationIdSnakeCase}}(
-        {{#allParams}}
-        const {{#isModel}}{{#isOptional}}{{/isOptional}}{{modelNamespace}}::{{/isModel}}{{{dataType}}}& {{#isHeaderParam}}header_{{/isHeaderParam}}{{#isQueryParam}}query_{{/isQueryParam}}{{#isPathParam}}path_{{/isPathParam}}{{paramName}}{{^-last}}, {{/-last}}
-        {{/allParams}}{{#hasParams}}, {{/hasParams}}
-        {{operationId}}Response& response) = 0;
-    {{/vendorExtensions.x-codegen-drogon-is-parsing-supported}}
+/* ---------- abstract operations ---------- */
+{{#operation}}
+/// <summary>{{summary}}</summary>
+{{#notes}}/// <remarks>{{notes}}</remarks>{{/notes}}
+{{#vendorExtensions.x-codegen-drogon-is-parsing-supported}}
+virtual void {{vendorExtensions.operationIdSnakeCase}}({{#allParams}}
+    const {{#isModel}}{{#isOptional}}{{/isOptional}}{{modelNamespace}}::{{/isModel}}{{{dataType}}}& {{#isHeaderParam}}header_{{/isHeaderParam}}{{#isQueryParam}}query_{{/isQueryParam}}{{#isPathParam}}path_{{/isPathParam}}{{paramName}}{{^-last}}, {{/-last}}
+{{/allParams}}{{#hasParams}}, {{/hasParams}}
+    {{operationId}}Response& response) = 0;
+{{/vendorExtensions.x-codegen-drogon-is-parsing-supported}}
 
-    {{^vendorExtensions.x-codegen-drogon-is-parsing-supported}}
-    virtual void {{vendorExtensions.operationIdSnakeCase}}(
-        const drogon::HttpRequestPtr& req,
-        std::function<void (const drogon::HttpResponsePtr &)> &&callback{{#pathParams}}, const {{{dataType}}}& path_{{paramName}}{{/pathParams}},
-        {{operationId}}Response& response) = 0;
-    {{/vendorExtensions.x-codegen-drogon-is-parsing-supported}}
+{{^vendorExtensions.x-codegen-drogon-is-parsing-supported}}
+virtual void {{vendorExtensions.operationIdSnakeCase}}(
+    const drogon::HttpRequestPtr& req,
+    std::function<void (const drogon::HttpResponsePtr &)> &&callback{{#pathParams}}, const {{{dataType}}}& path_{{paramName}}{{/pathParams}},
+    {{operationId}}Response& response) = 0;
+{{/vendorExtensions.x-codegen-drogon-is-parsing-supported}}
 
-    {{/operation}}
+/*--------------------------------------------------------------*/
+{{/operation}}
 };
 
 } // namespace {{apiNamespace}}

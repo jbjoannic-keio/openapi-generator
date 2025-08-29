@@ -27,19 +27,19 @@ namespace {{apiNamespace}} {
 
 /* ---------- response variants ---------- */
 {{#operation}}
-{{! HEADERS STRUCTS}}
 {{#vendorExtensions.x-codegen-response-variants-headers}}
 {{#hasHeaders}}
 struct {{operationId}}{{statusCode}}ResponseHeaders {
-    {{#headers}}
-        {{headerType}} {{sanitizedHeaderName}};
-    {{/headers}}
+
+{{#headers}}
+    {{headerType}} {{sanitizedHeaderName}};
+{{/headers}}
 
     std::array<std::pair<std::string, std::string>, {{headers.size}}> toArray() const {
         return {{
-            {{#headers}}
+{{#headers}}
             { "{{headerName}}", {{helpersNamespace}}::toStringValue({{sanitizedHeaderName}}) },
-            {{/headers}}
+{{/headers}}
         }};
     }
 };
@@ -49,36 +49,38 @@ struct {{operationId}}{{statusCode}}ResponseHeaders {
 using {{operationId}}Response = std::variant<
 {{#vendorExtensions.x-codegen-response-variants-flat}}
 {{#hasHeaders}}
-    {{#hasBody}}
+{{#hasBody}}
     std::tuple<
         std::integral_constant<drogon::HttpStatusCode, drogon::{{statusCode}}>,
-            {{#hasContentType}}
+{{#hasContentType}}
         std::integral_constant<drogon::ContentType, drogon::{{contentType}}>,
-            {{/hasContentType}}
-            {{{dataType}}},
-        {{operationId}}{{statusCode}}ResponseHeaders>
-    {{/hasBody}}
-    {{^hasBody}}
+{{/hasContentType}}
+        {{{dataType}}},
+        {{operationId}}{{statusCode}}ResponseHeaders>{{^-last}},{{/-last}}
+{{/hasBody}}
+{{^hasBody}}
     std::tuple<
         std::integral_constant<drogon::HttpStatusCode, drogon::{{statusCode}}>,
-        {{operationId}}{{statusCode}}ResponseHeaders>
-    {{/hasBody}}
+        {{operationId}}{{statusCode}}ResponseHeaders>{{^-last}},{{/-last}}
+{{/hasBody}}
 {{/hasHeaders}}
 {{^hasHeaders}}
-    {{#hasBody}}
+{{#hasBody}}
     std::tuple<
         std::integral_constant<drogon::HttpStatusCode, drogon::{{statusCode}}>,
-        {{#hasContentType}}
+{{#hasContentType}}
         std::integral_constant<drogon::ContentType, drogon::{{contentType}}>,
-        {{/hasContentType}}
-        {{{dataType}}}>
-    {{/hasBody}}
-    {{^hasBody}}
-    std::integral_constant<drogon::HttpStatusCode, drogon::{{statusCode}}>
-    {{/hasBody}}
+{{/hasContentType}}
+        {{{dataType}}}>{{^-last}},{{/-last}}
+{{/hasBody}}
+{{^hasBody}}
+    std::integral_constant<drogon::HttpStatusCode, drogon::{{statusCode}}>{{^-last}},{{/-last}}
+{{/hasBody}}
 {{/hasHeaders}}
-{{^-last}},{{/-last}}
 {{/vendorExtensions.x-codegen-response-variants-flat}}>;
+
+/*----------------------------------------------------------------------*/
+
 {{/operation}}
 
 
