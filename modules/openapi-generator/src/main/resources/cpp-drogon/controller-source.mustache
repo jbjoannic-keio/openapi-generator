@@ -1,6 +1,7 @@
 {{>licenseInfo}}
 {{#operations}}
 #include "{{classname}}.h"
+#include "{{classname}}Interface.h"
 #include "{{prefix}}Helpers.h"
 #include "{{prefix}}HelpersJson.h"
 #include <json/json.h>
@@ -172,7 +173,7 @@ void {{classname}}::{{vendorExtensions.operationIdSnakeCase}}_handler(
         {{/hasHeaderParams}}
 
         /* -------- delegate to service -------- */
-        typename {{classname}}Interface::{{operationId}}Response respVariant;
+        {{operationId}}Response respVariant;
         service->{{vendorExtensions.operationIdSnakeCase}}(
             {{#allParams}}
             {{#isHeaderParam}}{{paramName}}{{/isHeaderParam}}
@@ -192,7 +193,7 @@ void {{classname}}::{{vendorExtensions.operationIdSnakeCase}}_handler(
 {{^vendorExtensions.x-codegen-drogon-is-parsing-supported}}
         // Fallback: give raw request to service (e.g., multipart/form-data, file).
         // The service may choose to call the callback directly.
-        typename {{classname}}Interface::{{operationId}}Response respVariant;
+        {{operationId}}Response respVariant;
         service->{{vendorExtensions.operationIdSnakeCase}}(
             req, std::move(cb){{#pathParams}}, path_{{paramName}}{{/pathParams}}, respVariant
         );

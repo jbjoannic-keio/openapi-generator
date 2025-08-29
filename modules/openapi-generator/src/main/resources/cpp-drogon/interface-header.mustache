@@ -14,6 +14,9 @@
 #include <variant>
 #include <drogon/HttpTypes.h>
 #include <type_traits>
+
+#include "{{classname}}Response.h"
+
 {{#imports}}
 {{{import}}}
 {{/imports}}
@@ -23,27 +26,6 @@ namespace {{apiNamespace}} {
 class {{declspec}}{{classname}}Interface {
 public:
     virtual ~{{classname}}Interface() = default;
-
-    /* ---------- response variants ---------- */
-    {{#operation}}
-    using {{operationId}}Response = std::variant<
-    {{#vendorExtensions.x-codegen-response-variants-flat}}
-        {{#hasBody}}
-            std::tuple<
-                std::integral_constant<drogon::HttpStatusCode, drogon::{{statusCode}}>,
-                {{#hasContentType}}
-                std::integral_constant<drogon::ContentType, drogon::{{contentType}}>,
-                {{/hasContentType}}
-                {{{dataType}}}
-            >
-        {{/hasBody}}
-        {{^hasBody}}
-            std::integral_constant<drogon::HttpStatusCode, drogon::{{statusCode}}>
-        {{/hasBody}}
-        {{^-last}},{{/-last}}
-    {{/vendorExtensions.x-codegen-response-variants-flat}}
-    >;
-    {{/operation}}
 
     /* ---------- abstract operations ---------- */
     {{#operation}}

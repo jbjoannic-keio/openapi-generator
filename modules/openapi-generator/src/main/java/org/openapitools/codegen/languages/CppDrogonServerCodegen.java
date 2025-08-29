@@ -258,6 +258,7 @@ public class CppDrogonServerCodegen extends AbstractCppCodegen {
         apiTemplateFiles.put("controller-header.mustache", ".h");
         apiTemplateFiles.put("controller-source.mustache", ".cpp");
         apiTemplateFiles.put("interface-header.mustache", ".h");
+        apiTemplateFiles.put("response-header.mustache", ".h");
 
         embeddedTemplateDir = "cpp-drogon";
 
@@ -307,6 +308,10 @@ public class CppDrogonServerCodegen extends AbstractCppCodegen {
 
     private void setupSupportingFiles() {
         supportingFiles.clear();
+        supportingFiles.add(
+                new SupportingFile("helpers-header-string.mustache", "model", modelNamePrefix + "HelpersString.h"));
+        supportingFiles.add(
+                new SupportingFile("helpers-source-string.mustache", "model", modelNamePrefix + "HelpersString.cpp"));
         supportingFiles.add(new SupportingFile("helpers-header-json.mustache", "model", modelNamePrefix + "HelpersJson.h"));
         supportingFiles.add(new SupportingFile("helpers-header.mustache", "model", modelNamePrefix + "Helpers.h"));
         supportingFiles.add(new SupportingFile("helpers-source.mustache", "model", modelNamePrefix + "Helpers.cpp"));
@@ -502,12 +507,57 @@ public class CppDrogonServerCodegen extends AbstractCppCodegen {
 
             // Build a flat list of response alternatives to make Mustache separators
             // trivial
+            // add also headers if any
+            List<Map<String, Object>> flatHeaders = new ArrayList<>();
             List<Map<String, Object>> flatVariants = new ArrayList<>();
             Set<String> seen = new HashSet<>();
+            Map<String, List<Map<String, String>>> statusCodeHeaders = new HashMap<>();
 
+            // First pass: collect headers by status code
             for (Map.Entry<String, ApiResponse> entry : operation.getResponses().entrySet()) {
                 String statusCode = DROGON_STATUS_CODE_MAPPING.getOrDefault(entry.getKey(), "kUnknown");
                 ApiResponse response = entry.getValue();
+
+                if (response.getHeaders() != null && !response.getHeaders().isEmpty()) {
+                    op.vendorExtensions.put("x-codegen-response-has-headers", true);
+
+                    List<Map<String, String>> headersList = new ArrayList<>();
+                    for (Map.Entry<String, io.swagger.v3.oas.models.headers.Header> headerEntry : response
+                            .getHeaders().entrySet()) {
+                        Map<String, String> headers = new HashMap<>();
+                        String headerName = headerEntry.getKey();
+                        // Sanitize header name to be used as variable name
+                        String sanitizedHeaderName = headerName.replaceAll("[-\\s]", "_");
+                        io.swagger.v3.oas.models.headers.Header header = headerEntry.getValue();
+                        String headerType = getSchemaType(header.getSchema());
+                        headers.put("headerName", headerName);
+                        headers.put("sanitizedHeaderName", sanitizedHeaderName);
+                        headers.put("headerType", headerType);
+                        headersList.add(headers);
+                    }
+                    statusCodeHeaders.put(statusCode, headersList);
+                }
+            }
+
+            for (Map.Entry<String, List<Map<String, String>>> entry : statusCodeHeaders.entrySet()) {
+                String statusCode = entry.getKey();
+                List<Map<String, String>> headersList = entry.getValue();
+                Map<String, Object> alt = new HashMap<>();
+                alt.put("statusCode", statusCode);
+                alt.put("headers", headersList);
+                alt.put("hasHeaders", !headersList.isEmpty());
+                String dedupKey = statusCode + "|" + (headersList.toString());
+                if (seen.add(dedupKey)) {
+                    flatHeaders.add(alt);
+                }
+            }
+
+            // Second pass: build flat variants with headers per status code
+            for (Map.Entry<String, ApiResponse> entry : operation.getResponses().entrySet()) {
+                String statusCode = DROGON_STATUS_CODE_MAPPING.getOrDefault(entry.getKey(), "kUnknown");
+                ApiResponse response = entry.getValue();
+                List<Map<String, String>> headersList = statusCodeHeaders.getOrDefault(statusCode, new ArrayList<>());
+
                 if (response.getContent() != null && !response.getContent().isEmpty()) {
                     for (Map.Entry<String, io.swagger.v3.oas.models.media.MediaType> contentEntry : response
                             .getContent().entrySet()) {
@@ -519,6 +569,8 @@ public class CppDrogonServerCodegen extends AbstractCppCodegen {
                         alt.put("statusCode", statusCode);
                         alt.put("hasContentType", true);
                         alt.put("contentType", contentType);
+                        alt.put("headers", headersList);
+                        alt.put("hasHeaders", !headersList.isEmpty());
 
                         if (responseSchema != null) {
                             CodegenProperty cp = fromProperty("response", responseSchema, false);
@@ -539,13 +591,16 @@ public class CppDrogonServerCodegen extends AbstractCppCodegen {
                     alt.put("statusCode", statusCode);
                     alt.put("hasBody", false);
                     alt.put("hasContentType", false);
+                    alt.put("headers", headersList);
+                    alt.put("hasHeaders", !headersList.isEmpty());
+
                     String dedupKey = statusCode + "|nocontent|";
                     if (seen.add(dedupKey)) {
                         flatVariants.add(alt);
                     }
                 }
             }
-
+            op.vendorExtensions.put("x-codegen-response-variants-headers", flatHeaders);
             op.vendorExtensions.put("x-codegen-response-variants-flat", flatVariants);
 
         }
@@ -748,6 +803,8 @@ public class CppDrogonServerCodegen extends AbstractCppCodegen {
 
         if (templateName.endsWith("interface-header.mustache")) {
             result = interfaceFilenameFromApiFilename(result, ".h");
+        } else if (templateName.endsWith("response-header.mustache")) {
+            result = responseFilenameFromApiFilename(result, ".h");
         } else if (templateName.endsWith("interface-source.mustache")) {
             result = interfaceFilenameFromApiFilename(result, ".cpp");
         }
@@ -765,6 +822,12 @@ public class CppDrogonServerCodegen extends AbstractCppCodegen {
      */
     private String interfaceFilenameFromApiFilename(String filename, String suffix) {
         String result = filename.substring(0, filename.length() - suffix.length()) + "Interface" + suffix;
+        result = result.replace(apiFileFolder(), interfaceFileFolder());
+        return result;
+    }
+
+    private String responseFilenameFromApiFilename(String filename, String suffix) {
+        String result = filename.substring(0, filename.length() - suffix.length()) + "Response" + suffix;
         result = result.replace(apiFileFolder(), interfaceFileFolder());
         return result;
     }

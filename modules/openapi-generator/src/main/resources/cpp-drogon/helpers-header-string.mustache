@@ -1,0 +1,84 @@
+{{>licenseInfo}}
+/*
+ * {{prefix}}Helpers.h
+ *
+ * Generic helper utilities for generated Drogon projects.
+ * - Model/runtime helpers (validation, JSON conversion) — usable from models
+ * - HTTP helpers (variant → HttpResponsePtr)            — used by controllers
+ */
+
+#ifndef {{prefix}}Helpers_STRING_H_
+#define {{prefix}}Helpers_STRING_H_
+
+#include <map>
+#include <set>
+
+#include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
+#include <variant>
+#include <type_traits>
+#include <stdexcept>
+#include <optional>
+
+/*  Drogon & JSON ----------------------------------------------------- */
+#include <drogon/HttpTypes.h>
+#include <drogon/HttpResponse.h>
+
+
+namespace {{helpersNamespace}}
+{
+
+/* ----- string‑conversion helpers (declared; implemented in .cpp) ---- */
+std::string toStringValue(const std::string &value);
+std::string toStringValue(const int32_t value);
+std::string toStringValue(const int64_t value);
+std::string toStringValue(const bool    value);
+std::string toStringValue(const float   value);
+std::string toStringValue(const double  value);
+
+bool fromStringValue(const std::string &inStr, std::string &value);
+bool fromStringValue(const std::string &inStr, int32_t    &value);
+bool fromStringValue(const std::string &inStr, int64_t    &value);
+bool fromStringValue(const std::string &inStr, bool       &value);
+bool fromStringValue(const std::string &inStr, float      &value);
+bool fromStringValue(const std::string &inStr, double     &value);
+
+template<typename T>
+bool fromStringValue(const std::vector<std::string> &inStr,
+                     std::vector<T> &value)
+{
+    try
+    {
+        for (const auto & item : inStr)
+        {
+            T tmp{};
+            if (fromStringValue(item, tmp))
+                value.push_back(tmp);
+        }
+    }
+    catch (...)
+    {
+        return false;
+    }
+    return !value.empty();
+}
+
+template<typename T>
+bool fromStringValue(const std::string &inStr,
+                     std::vector<T> &value,
+                     char separator = ',')
+{
+    std::vector<std::string> parts;
+    std::istringstream       ss(inStr);
+    std::string              s;
+    while (std::getline(ss, s, separator))
+        parts.push_back(s);
+
+    return fromStringValue(parts, value);
+}
+
+} // namespace {{helpersNamespace}}
+
+#endif // {{prefix}}Helpers_STRING_H_
