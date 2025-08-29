@@ -66,13 +66,13 @@ struct {{declspec}} {{classname}}
     bool validate(std::stringstream& msg, const std::string& pathPrefix) const;
 
     // Convenience JSON helpers (JsonCpp)
-    Json::Value to_json() const;
-    static {{classname}} from_json(const Json::Value& j);
+    Json::Value toJson() const;
+    static {{classname}} fromJson(const Json::Value& j);
 };
 
 // Free functions (useful for generic utilities/tests)
-{{declspec}} void to_json(Json::Value& j, const {{classname}}& o);
-{{declspec}} void from_json(const Json::Value& j, {{classname}}& o);
+{{declspec}} void toJson(Json::Value& j, const {{classname}}& o);
+{{declspec}} void fromJson(const Json::Value& j, {{classname}}& o);
 
 } // namespace {{modelNamespace}}
 

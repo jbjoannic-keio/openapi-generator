@@ -2,6 +2,7 @@
 {{#operations}}
 #include "{{classname}}.h"
 #include "{{prefix}}Helpers.h"
+#include "{{prefix}}HelpersJson.h"
 #include <json/json.h>
 #include <memory>
 #include <utility>
@@ -82,10 +83,9 @@ void {{classname}}::{{vendorExtensions.operationIdSnakeCase}}_handler(
         {{{dataType}}} {{paramName}};
         try {
             // Make helpers' container overloads visible; models still resolve via ADL.
-            using {{helpersNamespace}}::from_json;
 
             if (auto json = req->getJsonObject()) {
-                from_json(*json, {{paramName}});
+                {{helpersNamespace}}::json::fromJson::fromJson(*json, {{paramName}});
             } else {
                 Json::CharReaderBuilder b;
                 std::unique_ptr<Json::CharReader> reader(b.newCharReader());
@@ -96,7 +96,7 @@ void {{classname}}::{{vendorExtensions.operationIdSnakeCase}}_handler(
                 if (!reader->parse(data, data + len, &jsonBody, &errs)) {
                     throw std::invalid_argument("Invalid JSON body");
                 }
-                from_json(jsonBody, {{paramName}});
+                {{helpersNamespace}}::json::fromJson::fromJson(jsonBody, {{paramName}});
             }
 
             // Validate only if the type provides validate(); no-op otherwise

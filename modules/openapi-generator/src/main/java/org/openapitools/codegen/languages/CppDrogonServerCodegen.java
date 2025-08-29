@@ -307,6 +307,7 @@ public class CppDrogonServerCodegen extends AbstractCppCodegen {
 
     private void setupSupportingFiles() {
         supportingFiles.clear();
+        supportingFiles.add(new SupportingFile("helpers-header-json.mustache", "model", modelNamePrefix + "HelpersJson.h"));
         supportingFiles.add(new SupportingFile("helpers-header.mustache", "model", modelNamePrefix + "Helpers.h"));
         supportingFiles.add(new SupportingFile("helpers-source.mustache", "model", modelNamePrefix + "Helpers.cpp"));
         supportingFiles.add(new SupportingFile("server-header.mustache", "", "Server.h"));
@@ -594,7 +595,7 @@ public class CppDrogonServerCodegen extends AbstractCppCodegen {
 
     /**
      * Extract the primary status code from operation responses
-     * 
+     *
      * @param responses The operation responses
      * @return The primary status code as string
      */

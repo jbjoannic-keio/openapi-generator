@@ -1,0 +1,116 @@
+{{!
+This template generates JSON serialization logic for arrays and nested objects.
+This template calls itself recursively for nested arrays.
+}}
+{{#isArray}}
+{{#items}}
+    {{#isArray}}
+    for (const auto& item : value) {
+        Json::Value itemJson(Json::arrayValue);
+        const auto& value = item;
+        {{> array-model-to-json}}
+        arrayJson.append(itemJson);
+    }
+    {{/isArray}}
+    {{^isArray}}
+    {{#isMap}}
+      Json::Value jsonValue(Json::objectValue);
+      for (const auto& [key, item] : value)
+        {
+
+        }
+            {{#items.isPrimitiveType}}
+              for (const auto& kv : {{name}}Map) {
+                {{name}}JsonObj[kv.first] = kv.second;
+              }
+            {{/items.isPrimitiveType}}
+            {{^items.isPrimitiveType}}
+              {{#items.isString}}
+                for (const auto& kv : {{name}}Map) {
+                  {{name}}JsonObj[kv.first] = kv.second;
+                }
+              {{/items.isString}}
+              {{#items.isDate}}
+                for (const auto& kv : {{name}}Map) {
+                  {{name}}JsonObj[kv.first] = kv.second;
+                }
+              {{/items.isDate}}
+              {{#items.isDateTime}}
+                for (const auto& kv : {{name}}Map) {
+                  {{name}}JsonObj[kv.first] = kv.second;
+                }
+              {{/items.isDateTime}}
+              {{#items.isByteArray}}
+                for (const auto& kv : {{name}}Map) {
+                  {{name}}JsonObj[kv.first] = kv.second;
+                }
+              {{/items.isByteArray}}
+              {{#items.isBinary}}
+                for (const auto& kv : {{name}}Map) {
+                  {{name}}JsonObj[kv.first] = kv.second;
+                }
+              {{/items.isBinary}}
+              {{^items.isString}}{{^items.isDate}}{{^items.isDateTime}}{{^items.isByteArray}}{{^items.isBinary}}
+                // Map<string, nested model>
+                for (const auto& kv : {{name}}Map) {
+                  Json::Value valueJson;
+                  to_json(valueJson, kv.second);
+                  {{name}}JsonObj[kv.first] = std::move(valueJson);
+                }
+              {{/items.isBinary}}{{/items.isByteArray}}{{/items.isDateTime}}{{/items.isDate}}{{/items.isString}}
+            {{/items.isPrimitiveType}}
+
+            j["{{baseName}}"] = std::move({{name}}JsonObj);
+        {{/isMap}}
+        {{^isMap}}
+          {{#isPrimitiveType}}
+            {{#required}}j["{{baseName}}"] = o.{{name}};{{/required}}
+            {{^required}}if (co.{{name}}.has_value()) j["{{baseName}}"] = o.{{name}}.value();{{/required}}
+          {{/isPrimitiveType}}
+          {{^isPrimitiveType}}
+            {{#isString}}
+              {{#required}}j["{{baseName}}"] = o.{{name}};{{/required}}
+              {{^required}}if (do.{{name}}.has_value()) j["{{baseName}}"] = o.{{name}}.value();{{/required}}
+            {{/isString}}
+            {{#isDate}}
+              {{#required}}j["{{baseName}}"] = o.{{name}};{{/required}}
+              {{^required}}if (eo.{{name}}.has_value()) j["{{baseName}}"] = o.{{name}}.value();{{/required}}
+            {{/isDate}}
+            {{#isDateTime}}
+              {{#required}}j["{{baseName}}"] = o.{{name}};{{/required}}
+              {{^required}}if (fo.{{name}}.has_value()) j["{{baseName}}"] = o.{{name}}.value();{{/required}}
+            {{/isDateTime}}
+            {{#isByteArray}}
+              {{#required}}j["{{baseName}}"] = o.{{name}};{{/required}}
+              {{^required}}if (go.{{name}}.has_value()) j["{{baseName}}"] = o.{{name}}.value();{{/required}}
+            {{/isByteArray}}
+            {{#isBinary}}
+              {{#required}}j["{{baseName}}"] = o.{{name}};{{/required}}
+              {{^required}}if (ho.{{name}}.has_value()) j["{{baseName}}"] = o.{{name}}.value();{{/required}}
+            {{/isBinary}}
+            {{^isString}}{{^isDate}}{{^isDateTime}}{{^isByteArray}}{{^isBinary}}
+              {{^required}}if (io.{{name}}.has_value()){{/required}}
+              {
+                  Json::Value propJson;
+                  to_json(propJson, {{#required}}o.{{name}}{{/required}}{{^required}}o.{{name}}.value(){{/required}});
+                  j["{{baseName}}"] = std::move(propJson);
+              }
+            {{/isBinary}}{{/isByteArray}}{{/isDateTime}}{{/isDate}}{{/isString}}
+          {{/isPrimitiveType}}
+        {{/isMap}}
+    {{#isModel}}
+    for (const auto& item : value) {
+        Json::Value itemJson;
+        to_json(itemJson, item);
+        arrayJson.append(itemJson);
+    }
+    {{/isModel}}
+    {{#isString}}
+    for (const auto& item : value) {
+        arrayJson.append(item);
+    }
+    {{/isString}}
+    {{/isArray}}
+{{/items}}
+
+{{/isArray}}

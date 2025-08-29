@@ -1,0 +1,286 @@
+{{>licenseInfo}}
+/*
+ * {{prefix}}HelpersJson.h
+ *
+ * Generic helper utilities for generated Drogon projects.
+ * - Model/runtime helpers (validation, JSON conversion) — usable from models
+ */
+
+#ifndef {{prefix}}_Helpers_JSON_H
+#define {{prefix}}_Helpers_JSON_H
+
+#include <cstdint>
+#include <ctime>
+#include <map>
+#include <set>
+#include <sstream>
+#include <string>
+#include <string_view>
+#include <type_traits>
+#include <optional>
+
+#include "json/json.h"
+
+namespace {{helpersNamespace}}::json
+{
+
+// Convert in compact string
+inline std::string dumpJson(const Json::Value& value)
+{
+    Json::StreamWriterBuilder writer;
+    writer["indentation"] = ""; // compact
+    return Json::writeString(writer, value);
+}
+
+// ---------- ADL detection for model free to_json / from_json ----------
+namespace detail {
+
+    //TO JSON
+
+    // T t.to_json()
+    template<class T, class = void>
+    struct has_member_to_json : std::false_type {};
+    template<class T>
+    struct has_member_to_json<T, std::void_t<decltype(std::declval<const T&>().to_json())>> : std::true_type {};
+
+
+    template<class T, class = void>
+    struct has_member_toJson : std::false_type {};
+    template<class T>
+    struct has_member_toJson<T, std::void_t<decltype(std::declval<const T&>().toJson())>> : std::true_type {};
+
+    template<class T, class = void>
+    struct has_free_to_json : std::false_type {};
+    template<class T>
+    struct has_free_to_json<T, std::void_t<decltype(
+        to_json(std::declval<Json::Value&>(), std::declval<const T&>())
+    )>> : std::true_type {};
+
+    template<class T, class = void>
+    struct has_free_toJson : std::false_type {};
+    template<class T>
+    struct has_free_toJson<T, std::void_t<decltype(
+        toJson(std::declval<Json::Value&>(), std::declval<const T&>())
+    )>> : std::true_type {};
+
+    // Detection of  functions like static T from_json(const Json::Value& json)
+    template<class T, class = void>
+    struct has_static_from_json : std::false_type {};
+    template<class T>
+    struct has_static_from_json<T, std::void_t<
+        decltype(T::from_json(std::declval<const Json::Value&>()))
+    >> : std::true_type {};
+
+
+
+    // FROM JSON
+
+    template<class T, class = void>
+    struct has_static_fromJson : std::false_type {};
+
+    template<class T>
+    struct has_static_fromJson<T, std::void_t<
+        decltype(T::fromJson(std::declval<const Json::Value&>()))
+    >> : std::true_type {};
+
+    // Détection d'une fonction libre from_json(Json::Value, T&)
+    template<class T, class = void>
+    struct has_free_from_json : std::false_type {};
+
+    template<class T>
+    struct has_free_from_json<T, std::void_t<
+        decltype(from_json(std::declval<const Json::Value&>(), std::declval<T&>()))
+    >> : std::true_type {};
+
+    template<class T, class = void>
+    struct has_free_fromJson : std::false_type {};
+    template<class T>
+    struct has_free_fromJson<T, std::void_t<
+        decltype(fromJson(std::declval<const Json::Value&>(), std::declval<T&>()))
+    >> : std::true_type {};
+} // namespace detail
+
+
+
+namespace toJson
+{
+
+// ---------- toJson: models (use member or free function if present) ----------
+template<class T>
+Json::Value toJson(const T& t)
+{
+    if constexpr (detail::has_member_to_json<T>::value) {
+        return t.to_json();
+    } else if constexpr (detail::has_member_toJson<T>::value) {
+        return t.toJson();
+    } else if constexpr (detail::has_free_to_json<T>::value) {
+        Json::Value j;
+        to_json(j, t);  // ADL into model namespace
+        return j;
+    } else if constexpr (detail::has_free_toJson<T>::value) {
+        Json::Value j;
+        toJson(j, t);  // ADL into model namespace
+        return j;
+    } else {
+        // Fallback for unsupported types:
+        return Json::Value(Json::objectValue);
+    }
+}
+
+// ---------- toJson: base overloads ----------
+inline Json::Value toJson(const Json::Value& v) { return v; }
+inline Json::Value toJson(const std::string& s) { return Json::Value(s); }
+inline Json::Value toJson(const char* s)        { return Json::Value(s ? s : ""); }
+inline Json::Value toJson(std::nullptr_t)       { return Json::Value(); }
+inline Json::Value toJson(bool b)               { return Json::Value(b); }
+inline Json::Value toJson(std::int32_t n)       { return Json::Value(static_cast<Json::Int>(n)); }
+inline Json::Value toJson(std::int64_t n)       { return Json::Value(static_cast<Json::Int64>(n)); }
+inline Json::Value toJson(double d)             { return Json::Value(d); }
+inline Json::Value toJson(float f)              { return Json::Value(static_cast<double>(f)); }
+
+template<typename T>
+Json::Value toJson(const std::optional<T> &oValue)
+{
+    return oValue.has_value() ? toJson(oValue.value()) : Json::Value();
+}
+
+// ---------- toJson: containers ----------
+template<typename T>
+Json::Value toJson(const std::vector<T>& vec)
+{
+    Json::Value jsonArray(Json::arrayValue);
+    for (const auto& item : vec) {
+        jsonArray.append(toJson(item));
+    }
+    return jsonArray;
+}
+
+template<typename T>
+Json::Value toJson(const std::set<T>& s)
+{
+    Json::Value jsonArray(Json::arrayValue);
+    for (const auto& item : s) {
+        jsonArray.append(toJson(item));
+    }
+    return jsonArray;
+}
+
+template<typename K, typename V>
+typename std::enable_if<std::is_same<K, std::string>::value, Json::Value>::type
+toJson(const std::map<K, V>& map)
+{
+    Json::Value jsonMap(Json::objectValue);
+    for (const auto& [key, value] : map)
+    {
+        jsonMap[key] = toJson(value);
+    }
+    return jsonMap;
+}
+
+
+// ------ toJson: with key ----------
+template<typename T>
+inline void toJson(Json::Value& json, const T& value, std::string_view key)
+{
+    json[key.data()] = std::move(toJson(value));
+}
+
+} // namespace toJson
+
+namespace fromJson
+{
+
+// ---------- fromJson: models (use member or free function if present) ----------
+template<class T>
+void fromJson(const Json::Value& j, T& value)
+{
+    if constexpr (detail::has_static_from_json<T>::value) {
+        value = T::from_json(j);
+    } else if constexpr (detail::has_static_fromJson<T>::value) {
+        // Si la classe définit: static T fromJson(const Json::Value&)
+        value = T::fromJson(j);
+    } else if constexpr (detail::has_free_from_json<T>::value) {
+        // Si une fonction libre existe: void from_json(const Json::Value&, T&)
+        from_json(j, value); // ADL into model namespace
+    } else if constexpr (detail::has_free_fromJson<T>::value) {
+        // Si une fonction libre existe: void fromJson(const Json::Value&, T&)
+        fromJson(j, value); // ADL into model namespace
+    } else {
+        // Fallback for unsupported types: no-op
+    }
+}
+
+
+// ---------- fromJson: base overloads ----------
+inline void fromJson(const Json::Value& json, std::string& str) { str = json.asString(); }
+inline void fromJson(const Json::Value& json, bool& b)           { b = json.asBool(); }
+inline void fromJson(const Json::Value& json, std::int32_t& n)   { n = static_cast<std::int32_t>(json.asInt()); }
+inline void fromJson(const Json::Value& json, std::int64_t& n)   { n = static_cast<std::int64_t>(json.asInt64()); }
+inline void fromJson(const Json::Value& json, double& d)         { d = json.asDouble(); }
+inline void fromJson(const Json::Value& json, float& f)          { f = json.asFloat(); }
+inline void fromJson(const Json::Value& json, std::uint32_t& n)   { n = static_cast<std::uint32_t>(json.asUInt()); }
+inline void fromJson(const Json::Value& json, std::uint64_t& n)  { n = static_cast<std::uint64_t>(json.asUInt64()); }
+inline void fromJson(const Json::Value& /*json*/, std::nullptr_t& /*null*/)   { /* no-op */ }
+
+template<typename T>
+inline void fromJson(const Json::Value& j, std::optional<T>& oValue)
+{
+    if (j.isNull()) { oValue.reset(); return; }
+    T v;
+    fromJson(j, v);
+    oValue = std::move(v);
+}
+
+
+// ---------- fromJson: containers ----------
+template<typename T>
+inline void fromJson(const Json::Value& json, std::vector<T>& vec)
+{
+    if (!json.isArray()) throw std::invalid_argument("Expected JSON array");
+    vec.clear();
+    for (const auto& itemJson : json)
+    {
+        T item{};
+        fromJson(itemJson, item);
+        vec.emplace_back(std::move(item));
+    }
+}
+
+template<typename T>
+inline void fromJson(const Json::Value& json, std::set<T>& s)
+{
+    if (!json.isArray()) throw std::invalid_argument("Expected JSON array");
+    s.clear();
+    for (const auto& itemJson : json)
+    {
+        T item{};
+        fromJson(itemJson, item);
+        s.insert(std::move(item));
+    }
+}
+
+template<typename K, typename V>
+typename std::enable_if<std::is_same<K, std::string>::value>::type
+fromJson(const Json::Value& json, std::map<K, V>& map)
+{
+    if (!json.isObject()) throw std::invalid_argument("Expected JSON object");
+    map.clear();
+    for (const auto& key : json.getMemberNames())
+    {
+        V value{};
+        fromJson(json[key], value);
+        map.emplace(key, std::move(value));
+    }
+}
+
+template<typename T>
+inline void fromJson(const Json::Value& json, T &value, std::string_view key)
+{
+    fromJson(json[key.data()], value);
+}
+
+} // namespace fromJson
+} // namespace {{helpersNamespace}}::json
+
+
+#endif

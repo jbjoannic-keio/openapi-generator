@@ -1,6 +1,7 @@
 generatorName: cpp-drogon-server
-outputDir: samples/server/atlas/cpp-drogon
-inputSpec: /home/jbjoannic/Dev/drogonGenerator/examples/atlas/OpenApi.yaml
+outputDir: /home/jbjoannic/Dev/vslam/drogonApp2
+inputSpec: /home/jbjoannic/Dev/vslam/generation/api/openapi.yaml
 templateDir: modules/openapi-generator/src/main/resources/cpp-drogon
 additionalProperties:
   hideGenerationTimestamp: "true"
+  useStructModel: "true"
