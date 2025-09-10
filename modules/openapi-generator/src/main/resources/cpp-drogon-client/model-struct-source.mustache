@@ -1,0 +1,173 @@
+{{>licenseInfo}}
+{{#models}}{{#model}}
+
+#include "{{classname}}.h"
+#include "{{prefix}}Helpers.h"
+#include "{{prefix}}HelpersJson.h"
+#include <stdexcept>
+#include <sstream>
+
+namespace {{modelNamespace}}
+{
+
+// -------------------------
+// Member convenience helpers
+// -------------------------
+
+Json::Value {{classname}}::toJson() const
+{
+    Json::Value jsonObj(Json::objectValue);
+    {{#modelNamespaceDeclarations}}::{{this}}{{/modelNamespaceDeclarations}}::toJson(jsonObj, *this);
+    return jsonObj;
+}
+
+{{classname}} {{classname}}::fromJson(const Json::Value& jsonObj)
+{
+    {{classname}} out{};
+    {{#modelNamespaceDeclarations}}::{{this}}{{/modelNamespaceDeclarations}}::fromJson(jsonObj, out);
+    return out;
+}
+
+void {{classname}}::validate() const
+{
+    std::stringstream msg;
+    if (!validate(msg))
+    {
+        throw {{helpersNamespace}}::ValidationException(msg.str());
+    }
+}
+
+bool {{classname}}::validate(std::stringstream& msg) const
+{
+    return validate(msg, "");
+}
+
+bool {{classname}}::validate(std::stringstream& msg, const std::string& pathPrefix) const
+{
+    // Silence warnings if no validations are generated for this model
+    (void)msg;
+    (void)pathPrefix;
+
+    bool success = true;
+    const std::string _pathPrefix = pathPrefix.empty() ? "{{classname}}" : pathPrefix;
+
+    {{#isEnum}}
+    // Enum container must be set
+    if (value == {{classname}}::e{{classname}}::INVALID_VALUE_OPENAPI_GENERATED)
+    {
+        success = false;
+        msg << _pathPrefix << ": has no value;";
+    }
+    {{/isEnum}}
+    {{^isEnum}}
+    {{#vars}}
+      {{#isArray}}
+        {{^required}}if ({{name}}.has_value()){{/required}}
+        {{#required}}/* {{name}} */{{/required}}
+        {
+            // NOTE: the variable name 'value' is intentional; the validation partial expects it.
+            const {{{dataType}}}& value = {{name}}{{^required}}.value(){{/required}};
+            (void)value; // avoid -Wunused-variable if the partial generates nothing
+            const std::string currentValuePath = _pathPrefix + ".{{nameInCamelCase}}";
+            {{> model-validation-body }}
+        }
+      {{/isArray}}
+      {{^isArray}}
+        {{#hasValidation}}
+          {{^required}}if ({{name}}.has_value()){{/required}}
+          {{#required}}/* {{name}} */{{/required}}
+          {
+              const {{{dataType}}}& value = {{name}}{{^required}}.value(){{/required}};
+              (void)value; // avoid -Wunused-variable if the partial generates nothing
+              const std::string currentValuePath = _pathPrefix + ".{{nameInCamelCase}}";
+              {{> model-validation-body }}
+          }
+        {{/hasValidation}}
+      {{/isArray}}
+    {{/vars}}
+    {{/isEnum}}
+
+    {{#vendorExtensions.x-is-string-enum-container}}{{#anyOf}}{{#-first}}
+    if (!m_value.validate(msg))
+    {
+        success = false;
+    }
+    {{/-first}}{{/anyOf}}{{/vendorExtensions.x-is-string-enum-container}}
+
+    return success;
+}
+
+// -------------------------
+// Free JSON (de)serializers
+// -------------------------
+
+void toJson(Json::Value& jsonObject, const {{classname}}& o)
+{
+    {{#isEnum}}{{#allowableValues}}
+    // Enum serialized as a scalar (string or integer)
+    switch (o.value)
+    {
+    {{#enumVars}}
+      {{#-first}}
+        case {{classname}}::e{{classname}}::INVALID_VALUE_OPENAPI_GENERATED:
+            jsonObject = Json::Value{{#isInteger}}(0){{/isInteger}}{{^isInteger}}("INVALID_VALUE_OPENAPI_GENERATED"){{/isInteger}};
+            return;
+      {{/-first}}
+        case {{classname}}::e{{classname}}::{{name}}:
+            jsonObject = Json::Value{{#isInteger}}({{value}}){{/isInteger}}{{^isInteger}}("{{value}}"){{/isInteger}};
+            return;
+    {{/enumVars}}
+    }
+    return;
+    {{/allowableValues}}{{/isEnum}}
+
+    // Non-enum: object with properties
+    jsonObject = Json::Value(Json::objectValue);
+
+    {{#vars}}
+    {{^required}}if (o.{{name}}.has_value())
+    {
+      {{helpersNamespace}}::json::toJson::toJson(jsonObject, o.{{name}}, "{{baseName}}");
+    }
+    {{/required}}
+    {{#required}}
+    {{helpersNamespace}}::json::toJson::toJson(jsonObject, o.{{name}}, "{{baseName}}");
+    {{/required}}
+    {{/vars}}
+
+    {{#vendorExtensions.x-is-string-enum-container}}{{#anyOf}}{{#-first}}toJson(j, o.m_value);{{/-first}}{{/anyOf}}{{/vendorExtensions.x-is-string-enum-container}}
+}
+
+void fromJson(const Json::Value& j, {{classname}}& o)
+{
+    {{#vars}}
+      {{#required}}
+        if (!j.isMember("{{baseName}}")) {
+            throw std::invalid_argument("Missing required field: {{baseName}}");
+        }
+      {{/required}}
+      {{helpersNamespace}}::json::fromJson::fromJson(j, o.{{name}}, "{{baseName}}");
+
+    {{/vars}}
+
+    {{#isEnum}}{{#allowableValues}}
+    // Parse enum scalar to container
+    auto s = {{#isInteger}}j.as{{#isLong}}Int64{{/isLong}}{{^isLong}}Int{{/isLong}}(){{/isInteger}}{{^isInteger}}j.asString(){{/isInteger}};
+    {{#enumVars}}
+      {{#-first}}
+        if{{/-first}}{{^-first}}else if{{/-first}}(s == {{#isInteger}}{{value}}{{/isInteger}}{{^isInteger}}"{{value}}"{{/isInteger}}) {
+            o.value = {{classname}}::e{{classname}}::{{name}};
+        } {{#-last}} else {
+            std::stringstream ss;
+            ss << "Unexpected value " << s << " in json"
+               << " cannot be converted to enum of type"
+               << " {{classname}}::e{{classname}}";
+            throw std::invalid_argument(ss.str());
+        } {{/-last}}
+    {{/enumVars}}{{/allowableValues}}{{/isEnum}}
+}
+
+} // namespace {{modelNamespace}}
+
+{{/model}}
+{{/models}}

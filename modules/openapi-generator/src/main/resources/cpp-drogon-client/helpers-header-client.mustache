@@ -1,0 +1,127 @@
+{{>licenseInfo}}
+/*
+ * {{prefix}}HelpersClient.h
+ *
+ * Generic helper utilities for generated Drogon projects.
+ * - Model/runtime helpers (validation, JSON conversion) — usable from models
+ * - HTTP helpers (variant → HttpResponsePtr)            — used by controllers
+ */
+
+#ifndef {{prefix}}HelpersClient_H_
+#define {{prefix}}HelpersClient_H_
+#include <variant>
+#include <type_traits>
+#include <drogon/drogon.h>
+#include <string>
+#include <optional>
+#include <vector>
+#include <cstdint>
+#include <stdexcept>
+
+
+#include "{{prefix}}HelpersJson.h"
+
+namespace {{helpersNamespace}}
+{
+
+template<class> inline constexpr bool always_false_v = false;
+namespace detail {
+template<class Body>
+Body parseBody(const drogon::HttpResponsePtr& resp, drogon::ContentType ctype)
+{
+    if (ctype == drogon::CT_APPLICATION_JSON)
+    {
+        auto json = resp->getJsonObject();
+        return json::fromJson::fromJson<Body>(*json);
+    }
+    else
+    {
+        if constexpr (std::is_same_v<Body, std::string>)
+        {
+            return resp->getBody();
+        }
+        else if constexpr (std::is_same_v<Body, std::vector<std::uint8_t>>)
+        {
+            const auto &s = resp->getBody();
+            return std::vector<std::uint8_t>(s.begin(), s.end());
+        } else if constexpr (std::is_constructible_v<Body, std::string>)
+        {
+            return Body{resp->getBody()};
+        } else
+        {
+            static_assert(always_false_v<Body>, "Unsupported non-Json body type");
+        }
+    }
+}
+
+template <std::size_t I, class Variant>
+struct TryAlt
+{
+    static std::optional<Variant> run(const drogon::HttpResponsePtr& resp)
+    {
+        using Alt          = std::variant_alternative_t<I, Variant>;
+        constexpr size_t N = std::tuple_size_v<Alt>;
+        using Status       = std::tuple_element_t<0, Alt>;
+        if (resp->getStatusCode() == Status::value)
+        {
+            if constexpr (N == 1)
+            {  // tuple<StatusCode>
+                return Variant{Alt{Status{}}};
+            }
+            else if constexpr (N == 2)
+            {  // tuple<StatusCode, headers>
+                using Headers = std::tuple_element_t<1, Alt>;
+                Headers headers{resp->headers()};
+                return Variant{Alt{Status{}, std::move(headers)}};
+            }
+            using CType = std::tuple_element_t<1, Alt>;
+            //// N >=3 -> a content type is provided
+            if (resp->getContentType() == CType::value)
+            {
+                using Body = std::tuple_element_t<2, Alt>;
+                if constexpr (N == 3)
+                {  // tuple<Status, CType, Body>
+                    Body body = parseBody<Body>(resp, CType::value);
+                    return Variant{Alt{Status{}, CType{}, std::move(body)}};
+                }
+                else if constexpr (N == 4)
+                {  // tuple<Status, CType, Body, headers>
+                    using Headers = std::tuple_element_t<3, Alt>;
+                    Body    body  = parseBody<Body>(resp, CType::value);
+                    Headers headers{resp->headers()};
+                    return Variant{Alt{Status{}, CType{}, std::move(body), std::move(headers)}};
+                }
+                else
+                {
+                    static_assert(false, "WRONG HEADERS FORMAT");
+                }
+            }
+        }
+        if constexpr (I + 1 < std::variant_size_v<Variant>)
+        {
+            return TryAlt<I + 1, Variant>::run(resp);
+        }
+        else
+        {
+            return std::nullopt;
+        }
+    }
+};
+
+} //namespace detail
+
+template<class Variant>
+Variant toVariantResponse(const drogon::HttpResponsePtr& resp)
+{
+    auto opt = detail::TryAlt<0, Variant>::run(resp);
+    if (!opt)
+    {
+        throw std::runtime_error("No variant alternative from response");
+    }
+    return *opt;
+}
+
+} // namespace {{helpersNamespace}}
+
+
+#endif

@@ -1,0 +1,81 @@
+{{>licenseInfo}}
+{{#models}}{{#model}}/*
+ * {{classname}}.h
+ *
+ * {{description}}
+ */
+
+#ifndef {{classname}}_H_
+#define {{classname}}_H_
+
+// --- Standard & 3rd-party includes required by the public interface ---
+#include <cstdint>
+#include <string>
+#include <sstream>
+#include <json/json.h>
+{{#hasOptional}}#include <optional>{{/hasOptional}}
+
+// --- Generator-provided default & model-specific includes ---
+{{{defaultInclude}}}
+{{#imports}}{{{this}}}
+{{/imports}}
+
+namespace {{modelNamespace}}
+{
+
+struct {{declspec}} {{classname}}
+{
+    {{#isEnum}}{{#allowableValues}}
+    // Model-level enum
+    enum e{{classname}} {
+        // Valid default sentinel to avoid clashes with user-defined values
+        INVALID_VALUE_OPENAPI_GENERATED = 0,
+        {{#enumVars}}
+        {{{name}}}{{^-last}}, {{/-last}}
+        {{/enumVars}}
+    };{{/allowableValues}}{{/isEnum}}
+
+    {{#vars}}
+    {{^required}}std::optional<{{/required}}{{{dataType}}}{{^required}}>{{/required}} {{name}};
+    {{/vars}}
+
+    {{#isEnum}}// Enum container default
+    {{classname}}::e{{classname}} value = {{classname}}::e{{classname}}::INVALID_VALUE_OPENAPI_GENERATED;
+    {{/isEnum}}
+    {{#vendorExtensions.x-is-string-enum-container}}{{#anyOf}}{{#-first}}{{{this}}} m_value;{{/-first}}{{/anyOf}}{{/vendorExtensions.x-is-string-enum-container}}
+
+    // Equality
+    bool operator==(const {{classname}}& other) const;
+    bool operator!=(const {{classname}}& other) const;
+
+    /// <summary>
+    /// Validate the current data in the model. Throws a ValidationException on failure.
+    /// </summary>
+    void validate() const;
+
+    /// <summary>
+    /// Validate the current data in the model. Returns false on error and writes an error
+    /// message into the given stringstream.
+    /// </summary>
+    bool validate(std::stringstream& msg) const;
+
+    /// <summary>
+    /// Helper overload for validate. Used when one model stores another model and calls its validate.
+    /// Not meant to be called outside that case.
+    /// </summary>
+    bool validate(std::stringstream& msg, const std::string& pathPrefix) const;
+
+    // Convenience JSON helpers (JsonCpp)
+    Json::Value toJson() const;
+    static {{classname}} fromJson(const Json::Value& j);
+};
+
+// Free functions (useful for generic utilities/tests)
+{{declspec}} void toJson(Json::Value& j, const {{classname}}& o);
+{{declspec}} void fromJson(const Json::Value& j, {{classname}}& o);
+
+} // namespace {{modelNamespace}}
+
+#endif /* {{classname}}_H_ */
+{{/model}}
+{{/models}}

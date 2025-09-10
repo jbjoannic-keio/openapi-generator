@@ -1,0 +1,78 @@
+{{>licenseInfo}}
+{{#operations}}/*
+* {{classname}}.h
+*/
+#ifndef {{classname}}_H_
+#define {{classname}}_H_
+
+{{{defaultInclude}}}
+#include <drogon/HttpController.h>
+#include <drogon/drogon.h>
+
+#include <functional>
+#include <memory>
+#include <string>
+
+#include "{{classname}}Response.h"
+
+{{#imports}}{{{import}}}
+{{/imports}}
+
+namespace {{apiNamespace}} {
+
+class {{declspec}} {{classname}} {
+public:
+    /* ---------- Route table ---------- */
+
+    public:
+    {{classname}}(const std::string &adress);
+
+    /* ---------- abstract operations ---------- */
+    {{#operation}}
+    /// <summary>{{summary}}</summary>
+    {{#notes}}/// <remarks>{{notes}}</remarks>{{/notes}}
+
+    // Synchronous method
+    {{#vendorExtensions.x-codegen-drogon-is-parsing-supported}}
+    {{operationId}}Response {{vendorExtensions.operationIdSnakeCase}}({{#allParams}}
+        const {{#isModel}}{{#isOptional}}{{/isOptional}}{{modelNamespace}}::{{/isModel}}{{{dataType}}}& {{#isHeaderParam}}header_{{/isHeaderParam}}{{#isQueryParam}}query_{{/isQueryParam}}{{#isPathParam}}path_{{/isPathParam}}{{paramName}}{{^-last}}, {{/-last}}
+    {{/allParams}});
+    {{/vendorExtensions.x-codegen-drogon-is-parsing-supported}}
+
+    // Asynchronous method
+    {{#vendorExtensions.x-codegen-drogon-is-parsing-supported}}
+    using {{operationId}}Callback = std::function<void (const {{operationId}}Response&)>;
+    void {{vendorExtensions.operationIdSnakeCase}}({{#allParams}}
+        const {{#isModel}}{{#isOptional}}{{/isOptional}}{{modelNamespace}}::{{/isModel}}{{{dataType}}}& {{#isHeaderParam}}header_{{/isHeaderParam}}{{#isQueryParam}}query_{{/isQueryParam}}{{#isPathParam}}path_{{/isPathParam}}{{paramName}}{{^-last}}, {{/-last}}
+    {{/allParams}}{{#hasParams}}, {{/hasParams}}
+    {{operationId}}Callback&& callback);
+    {{/vendorExtensions.x-codegen-drogon-is-parsing-supported}}
+
+    /*--------------------------------------------------------------*/
+    {{/operation}}
+
+private:
+
+    drogon::HttpClientPtr mHttpClient;
+    std::string mAddress;
+
+    // Error helpers overridable by users if they subclass
+    virtual void handleParsingException(
+        const std::exception& ex,
+        std::function<void (const drogon::HttpResponsePtr &)> &&callback) const noexcept;
+
+    virtual std::pair<drogon::HttpStatusCode, std::string>
+    handleParsingException(const std::exception& ex) const noexcept;
+
+    virtual void handleOperationException(
+        const std::exception& ex,
+        std::function<void (const drogon::HttpResponsePtr &)> &&callback) const noexcept;
+
+    virtual std::pair<drogon::HttpStatusCode, std::string>
+    handleOperationException(const std::exception& ex) const noexcept;
+};
+
+} // namespace {{apiNamespace}}
+
+#endif /* {{classname}}_H_ */
+{{/operations}}

@@ -1,0 +1,126 @@
+{{!
+This template generates the validation logic for a model/property.
+It expects two names to be in scope:
+  - 'value'                : a const reference to the thing we validate (scalar / object / array)
+  - 'currentValuePath'     : path to 'value' in the parent object (e.g. "Pet.tags[3]")
+This partial is used recursively for arrays (see the array section below).
+}}
+
+/* --- Nested model ------------------------------------------------------- */
+{{#isModel}}
+success = value.validate(msg, currentValuePath) && success;
+{{/isModel}}
+
+/* --- Date / DateTime ---------------------------------------------------- */
+{{#isDate}}
+if (!{{helpersNamespace}}::validateRfc3339_date(value)) {
+    success = false;
+    msg << currentValuePath << ": must be a valid RFC 3339 date-full string;";
+}
+{{/isDate}}
+{{#isDateTime}}
+if (!{{helpersNamespace}}::validateRfc3339_date_time(value)) {
+    success = false;
+    msg << currentValuePath << ": must be a valid RFC 3339 date-time string;";
+}
+{{/isDateTime}}
+
+/* --- String ------------------------------------------------------------- */
+{{#isString}}
+{{#minLength}}
+if (value.length() < {{minLength}}) {
+    success = false;
+    msg << currentValuePath << ": must be at least {{minLength}} characters long;";
+}
+{{/minLength}}
+{{#maxLength}}
+if (value.length() > {{maxLength}}) {
+    success = false;
+    msg << currentValuePath << ": must be at most {{maxLength}} characters long;";
+}
+{{/maxLength}}
+{{! TODO: pattern: compile once and reuse }}
+{{#isEnum}}{{#allowableValues}}
+if (
+{{#enumVars}}
+    value != "{{value}}"{{^-last}} &&
+{{/-last}}
+{{/enumVars}}
+) {
+    success = false;
+    msg << currentValuePath << ": has invalid value \"" << value << "\";";
+}
+{{/allowableValues}}{{/isEnum}}
+{{/isString}}
+
+/* --- Numeric ------------------------------------------------------------ */
+{{#isNumeric}}
+{{#minimum}}
+if (value <{{#exclusiveMinimum}}={{/exclusiveMinimum}} {{#isFloat}}static_cast<float>({{/isFloat}}{{minimum}}{{#isFloat}}){{/isFloat}}{{#isLong}}ll{{/isLong}}) {
+    success = false;
+    msg << currentValuePath << ": must be greater than{{^exclusiveMinimum}} or equal to{{/exclusiveMinimum}} {{minimum}};";
+}
+{{/minimum}}
+{{#maximum}}
+if (value >{{#exclusiveMaximum}}={{/exclusiveMaximum}} {{#isFloat}}static_cast<float>({{/isFloat}}{{maximum}}{{#isFloat}}){{/isFloat}}{{#isLong}}ll{{/isLong}}) {
+    success = false;
+    msg << currentValuePath << ": must be less than{{^exclusiveMaximum}} or equal to{{/exclusiveMaximum}} {{maximum}};";
+}
+{{/maximum}}
+{{#multipleOf}}
+{{#isInteger}}
+if (value % {{multipleOf}}{{#isLong}}ll{{/isLong}} != 0) {
+    success = false;
+    msg << currentValuePath << ": must be a multiple of {{multipleOf}};";
+}
+{{/isInteger}}
+{{#isFloat}}
+if (std::fmod(value, static_cast<float>({{multipleOf}})) != 0) {
+    success = false;
+    msg << currentValuePath << ": must be a multiple of {{multipleOf}};";
+}
+{{/isFloat}}
+{{#isDouble}}
+if (std::fmod(value, {{multipleOf}}) != 0) {
+    success = false;
+    msg << currentValuePath << ": must be a multiple of {{multipleOf}};";
+}
+{{/isDouble}}
+{{/multipleOf}}
+{{/isNumeric}}
+
+/* --- Array (and recurse into elements) ---------------------------------- */
+{{#isArray}}
+{{#minItems}}
+if (value.size() < {{minItems}}) {
+    success = false;
+    msg << currentValuePath << ": must have at least {{minItems}} elements;";
+}
+{{/minItems}}
+{{#maxItems}}
+if (value.size() > {{maxItems}}) {
+    success = false;
+    msg << currentValuePath << ": must have at most {{maxItems}} elements;";
+}
+{{/maxItems}}
+{{#uniqueItems}}
+if (!{{helpersNamespace}}::hasOnlyUniqueItems(value)) {
+    success = false;
+    msg << currentValuePath << ": may not contain the same item more than once;";
+}
+{{/uniqueItems}}
+
+{ // Recurse into elements
+    const std::string parentPath = currentValuePath;
+    int i = 0;
+    for (const {{{items.dataType}}}& elem : value) {
+        const std::string currentValuePath = parentPath + "[" + std::to_string(i) + "]";
+        {{#items}}
+        // Provide the alias 'value' expected by the nested partial
+        const {{{dataType}}}& value = elem;
+        {{> model-validation-body }}
+        {{/items}}
+        ++i;
+    }
+}
+{{/isArray}}

@@ -1,0 +1,301 @@
+{{>licenseInfo}}
+/*
+ * {{prefix}}Helpers.h
+ *
+ * Generic helper utilities for generated Drogon projects.
+ * - Model/runtime helpers (validation, JSON conversion) — usable from models
+ * - HTTP helpers (variant → HttpResponsePtr)            — used by controllers
+ */
+
+#ifndef {{prefix}}Helpers_H_
+#define {{prefix}}Helpers_H_
+
+#include <cstdint>
+#include <ctime>
+#include <map>
+#include <set>
+
+#include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
+#include <variant>
+#include <type_traits>
+#include <stdexcept>
+#include <optional>
+
+/*  Drogon & JSON ----------------------------------------------------- */
+#include <drogon/HttpTypes.h>
+#include <drogon/HttpResponse.h>
+
+#include "{{prefix}}HelpersJson.h"
+#include "{{prefix}}HelpersString.h"
+
+namespace {{helpersNamespace}}
+{
+
+/* =======================================================================
+ *  1)  Validation & string-conversion helpers (declared; implemented in .cpp)
+ * ===================================================================== */
+class ValidationException : public std::runtime_error
+{
+public:
+    explicit ValidationException(const std::string& what)
+        : std::runtime_error(what)
+    { }
+    ~ValidationException() override = default;
+};
+
+/// Validate a string against the full‑date definition of RFC‑3339 §5.6.
+bool validateRfc3339_date(const std::string& str);
+
+/// Validate a string against the date‑time definition of RFC‑3339 §5.6.
+bool validateRfc3339_date_time(const std::string& str);
+
+namespace sfinae_helpers
+{
+    struct NoType {};
+    template <typename T1, typename T2> NoType operator==(const T1&, const T2&);
+
+    template <typename T1, typename T2> class EqualsOperatorAvailable
+    {
+    public:
+        enum
+        {
+            value = !std::is_same<
+                        decltype(std::declval<T1>() == std::declval<T2>()),
+                        NoType>::value
+        };
+    };
+} // namespace sfinae_helpers
+
+/// Determine if a vector contains only unique elements (requires ==).
+template <typename T>
+bool hasOnlyUniqueItems(const std::vector<T>& vec)
+{
+    static_assert(sfinae_helpers::EqualsOperatorAvailable<T, T>::value,
+                  "hasOnlyUniqueItems<T> requires operator==.");
+    if (vec.size() <= 1)
+        return true;
+
+    for (size_t i = 0; i + 1 < vec.size(); ++i)
+        for (size_t j = i + 1; j < vec.size(); ++j)
+            if (vec[i] == vec[j])
+                return false;
+
+    return true;
+}
+
+/// Variant for std::set (always unique by definition).
+template <typename T>
+bool hasOnlyUniqueItems(const std::set<T>&)
+{
+    return true;
+}
+
+{{! // ---------- from_json: models (free function via ADL if available) ----------
+template<class T>
+inline std::enable_if_t<detail::has_free_from_json<T>::value, void>
+from_json_adl(const Json::Value& j, T& v)
+{
+    // Unqualified call to enable ADL into the model namespace:
+    from_json(j, v);
+} }}
+
+// ---------- validate() detection and helper ----------
+namespace detail {
+    template<class T, class = void>
+    struct has_member_validate : std::false_type {};
+    template<class T>
+    struct has_member_validate<T, std::void_t<decltype(std::declval<const T&>().validate())>> : std::true_type {};
+}
+
+template<class T>
+inline void autoValidate(const T& v)
+{
+    if constexpr (detail::has_member_validate<T>::value) {
+        v.validate();
+    }
+}
+
+/* =======================================================================
+ *  3)  Response variant → drogon::HttpResponsePtr
+ *      (tuple<Status, ContentType, Body> | pair<Status, Body> | status-only)
+ * ===================================================================== */
+
+namespace detail {
+inline drogon::HttpResponsePtr badRequest(const std::string& what) {
+    auto r = drogon::HttpResponse::newHttpResponse();
+    r->setStatusCode(drogon::k400BadRequest);
+    r->setContentTypeCode(drogon::CT_TEXT_PLAIN);
+    r->setBody(what);
+    return r;
+}
+} // namespace detail
+
+template<drogon::HttpStatusCode S>
+inline drogon::HttpResponsePtr makeResponse(std::integral_constant<drogon::HttpStatusCode, S>)
+{
+    auto resp = drogon::HttpResponse::newHttpResponse();
+    resp->setStatusCode(S);
+    return resp;
+}
+
+// Backward‑compat: pair<Status, Body> → JSON response
+template<drogon::HttpStatusCode S, class Body>
+inline drogon::HttpResponsePtr makeResponse(
+    const std::pair<std::integral_constant<drogon::HttpStatusCode, S>, Body>& p)
+{
+    auto resp = drogon::HttpResponse::newHttpJsonResponse(toJson(p.second));
+    resp->setStatusCode(S);
+    return resp;
+}
+
+// tuple<Status, ContentType, Body> → typed response
+template<drogon::HttpStatusCode S, drogon::ContentType C, class Body>
+inline drogon::HttpResponsePtr makeResponse(
+    const std::tuple<
+        std::integral_constant<drogon::HttpStatusCode, S>,
+        std::integral_constant<drogon::ContentType, C>,
+        Body
+    >& t)
+{
+    drogon::HttpResponsePtr resp;
+
+    if constexpr (C != drogon::CT_APPLICATION_JSON && std::is_same_v<Body, RawResponse>)
+    {
+        // Cas spécial RawResponse → on prend directement l’ownership
+        auto& body = std::get<2>(t);
+        resp = body.getPtr();
+        resp->setStatusCode(S);
+        resp->setContentTypeCode(C);
+    }
+    else
+    {
+        resp = drogon::HttpResponse::newHttpResponse();
+        resp->setStatusCode(S);
+        resp->setContentTypeCode(C);
+
+        const auto& body = std::get<2>(t);
+
+        if constexpr (C == drogon::CT_APPLICATION_JSON)
+        {
+            resp->setBody(json::dumpJson(json::toJson::toJson(body)));
+        }
+        else if constexpr (std::is_same_v<Body, std::string>)
+        {
+            resp->setBody(body);
+        }
+        else if constexpr (std::is_same_v<Body, std::string_view>)
+        {
+            resp->setBody(std::string(body));
+        }
+        else if constexpr (std::is_same_v<Body, std::vector<std::uint8_t>>)
+        {
+            resp->setBody(std::string(reinterpret_cast<const char*>(body.data()), body.size()));
+        }
+        else if constexpr (std::is_same_v<Body, RawResponse>)
+        {
+            // Ne devrait pas arriver car géré plus haut
+            static_assert(!std::is_same_v<Body, RawResponse>,
+                          "Unexpected RawResponse handling path");
+        }
+        else
+        {
+            // fallback JSON
+            resp->setBody(json::dumpJson(json::toJson::toJson(body)));
+        }
+    }
+    return resp;
+}
+
+
+template<drogon::HttpStatusCode S, drogon::ContentType C, class Body, class Headers>
+inline drogon::HttpResponsePtr makeResponse(
+    const std::tuple<
+        std::integral_constant<drogon::HttpStatusCode, S>,
+        std::integral_constant<drogon::ContentType, C>,
+        Body,
+        Headers
+    >& t)
+{
+    drogon::HttpResponsePtr resp;
+
+    if constexpr (C != drogon::CT_APPLICATION_JSON && std::is_same_v<Body, RawResponse>)
+    {
+        // Cas spécial RawResponse → on prend directement l’ownership
+        auto& body = std::get<2>(t);
+        resp = body.getPtr();
+        resp->setStatusCode(S);
+        resp->setContentTypeCode(C);
+    }
+    else
+    {
+        resp = drogon::HttpResponse::newHttpResponse();
+        resp->setStatusCode(S);
+        resp->setContentTypeCode(C);
+
+        const auto& body = std::get<2>(t);
+
+        if constexpr (C == drogon::CT_APPLICATION_JSON)
+        {
+            resp->setBody(json::dumpJson(json::toJson::toJson(body)));
+        }
+        else if constexpr (std::is_same_v<Body, std::string>)
+        {
+            resp->setBody(body);
+        }
+        else if constexpr (std::is_same_v<Body, std::string_view>)
+        {
+            resp->setBody(std::string(body));
+        }
+        else if constexpr (std::is_same_v<Body, std::vector<std::uint8_t>>)
+        {
+            resp->setBody(std::string(reinterpret_cast<const char*>(body.data()), body.size()));
+        }
+        else if constexpr (std::is_same_v<Body, RawResponse>)
+        {
+            // Ne devrait pas arriver car géré plus haut
+            static_assert(!std::is_same_v<Body, RawResponse>,
+                          "Unexpected RawResponse handling path");
+        }
+        else
+        {
+            // fallback JSON
+            resp->setBody(json::dumpJson(json::toJson::toJson(body)));
+        }
+    }
+
+    // Headers (dans tous les cas)
+    const auto& headers = std::get<3>(t);
+    for (auto&& [key, value] : headers.toArray()) {
+        resp->addHeader(key, value);
+    }
+
+    return resp;
+}
+
+struct ToHttpVisitor {
+    template<class Alt>
+    drogon::HttpResponsePtr operator()(Alt&& alt) const
+    {
+        return makeResponse(std::forward<Alt>(alt));
+    }
+};
+
+template<class Variant>
+inline drogon::HttpResponsePtr toHttpResponse(const Variant& v)
+{
+    return std::visit(ToHttpVisitor{}, v);
+}
+
+// Legacy alias (some older controllers might use this name)
+template<class Variant>
+inline drogon::HttpResponsePtr variantToHttp(const Variant& v)
+{
+    return toHttpResponse(v);
+}
+
+} // namespace {{helpersNamespace}}
+
+#endif // {{prefix}}Helpers_H_

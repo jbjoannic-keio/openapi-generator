@@ -1,0 +1,109 @@
+{{>licenseInfo}}
+{{#operations}}/*
+* {{classname}}Response.h
+*/
+#ifndef {{classnameSnakeUpperCase}}_RESPONSE_H_
+#define {{classnameSnakeUpperCase}}_RESPONSE_H_
+
+{{{defaultInclude}}}
+#include <cstdint>
+#include <functional>
+#include <optional>
+#include <tuple>
+#include <utility>
+#include <variant>
+#include <drogon/HttpTypes.h>
+#include <type_traits>
+#include <array>
+#include <unordered_map>
+
+#include "{{prefix}}HelpersString.h"
+
+{{#imports}}
+{{{import}}}
+{{/imports}}
+
+namespace {{apiNamespace}} {
+
+
+/* ---------- response variants ---------- */
+{{#operation}}
+{{#vendorExtensions.x-codegen-response-variants-headers}}
+{{#hasHeaders}}
+struct {{operationId}}{{statusCode}}ResponseHeaders {
+
+{{#headers}}
+    std::optional<{{headerType}}> {{sanitizedHeaderName}}{};
+{{/headers}}
+
+    std::array<std::pair<std::string, std::string>, {{headers.size}}> toArray() const {
+        return {{
+{{#headers}}
+            { "{{headerName}}", {{helpersNamespace}}::toStringValue({{sanitizedHeaderName}}) },
+{{/headers}}
+        }};
+    }
+
+    {{operationId}}{{statusCode}}ResponseHeaders() = default;
+    explicit {{operationId}}{{statusCode}}ResponseHeaders(const drogon::SafeStringMap<std::string> &headers)
+    {
+        {{#headers}}
+            if (std::string v = {{helpersNamespace}}::safe_at(headers, "{{headerName}}"); !v.empty())
+            {
+                try
+                {
+                    {{helpersNamespace}}::fromStringValue(v, {{sanitizedHeaderName}});
+                }
+                catch (const std::exception &e)
+                {
+                    // continue
+                }
+            }
+        {{/headers}}
+    }
+};
+{{/hasHeaders}}
+{{/vendorExtensions.x-codegen-response-variants-headers}}
+
+using {{operationId}}Response = std::variant<
+{{#vendorExtensions.x-codegen-response-variants-flat}}
+{{#hasHeaders}}
+{{#hasBody}}
+    std::tuple<
+        std::integral_constant<drogon::HttpStatusCode, drogon::{{statusCode}}>,
+{{#hasContentType}}
+        std::integral_constant<drogon::ContentType, drogon::{{contentType}}>,
+{{/hasContentType}}
+        {{#isString}}{{helpersNamespace}}::RawResponse{{/isString}}{{^isString}}{{{dataType}}}{{/isString}},
+        {{operationId}}{{statusCode}}ResponseHeaders>{{^-last}},{{/-last}}
+{{/hasBody}}
+{{^hasBody}}
+    std::tuple<
+        std::integral_constant<drogon::HttpStatusCode, drogon::{{statusCode}}>,
+        {{operationId}}{{statusCode}}ResponseHeaders>{{^-last}},{{/-last}}
+{{/hasBody}}
+{{/hasHeaders}}
+{{^hasHeaders}}
+{{#hasBody}}
+    std::tuple<
+        std::integral_constant<drogon::HttpStatusCode, drogon::{{statusCode}}>,
+{{#hasContentType}}
+        std::integral_constant<drogon::ContentType, drogon::{{contentType}}>,
+{{/hasContentType}}
+        {{#isString}}{{helpersNamespace}}::RawResponse{{/isString}}{{^isString}}{{{dataType}}}{{/isString}}>{{^-last}},{{/-last}}
+{{/hasBody}}
+{{^hasBody}}
+    std::integral_constant<drogon::HttpStatusCode, drogon::{{statusCode}}>{{^-last}},{{/-last}}
+{{/hasBody}}
+{{/hasHeaders}}
+{{/vendorExtensions.x-codegen-response-variants-flat}}>;
+
+/*----------------------------------------------------------------------*/
+
+{{/operation}}
+
+
+} // namespace {{apiNamespace}}
+
+#endif /* {{classnameSnakeUpperCase}}_RESPONSE_H_ */
+{{/operations}}

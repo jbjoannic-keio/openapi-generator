@@ -1,0 +1,45 @@
+{{>licenseInfo}}
+
+#include <drogon/drogon.h>
+#include <memory>
+    #include <thread>
+
+    {{#apiInfo}}{{#apis}}
+        #include "{{classname}}.h"          // Generated controller
+    {{/apis}}{{/apiInfo}}
+
+    using namespace {{apiNamespace}};
+
+    int
+    main(int /*argc*/, char* /*argv*/[])
+    {
+    /* -----------------------------------------------------------------------
+    * 1. Core server settings
+    * -------------------------------------------------------------------- */
+    const unsigned short port =
+    static_cast<unsigned short>({{serverPort}}{{^serverPort}}8080{{/serverPort}});
+    const unsigned int threads =
+    std::max(1u, std::thread::hardware_concurrency());   // sensible default
+
+    drogon::app()
+    .setThreadNum(threads)               // worker‑threads
+    .addListener("0.0.0.0", port)        // bind address / port
+    /* .enableRunAsDaemon()              // ← uncomment if you need daemon mode   */
+    /* .setSSLFiles("server.pem","key")  // ← TLS example                        */
+    ;
+
+    /* -----------------------------------------------------------------------
+    * 2. Register controllers
+    *    (second template parameter = false ⇒ manual registration required)
+    * -------------------------------------------------------------------- */
+    {{#apiInfo}}{{#apis}}
+        drogon::app().registerController(std::make_shared<{{classname}}>());
+    {{/apis}}{{/apiInfo}}
+
+    /* -----------------------------------------------------------------------
+    * 3. Start event loop (blocking)
+    * -------------------------------------------------------------------- */
+    drogon::app().run();
+
+    return 0;
+    }

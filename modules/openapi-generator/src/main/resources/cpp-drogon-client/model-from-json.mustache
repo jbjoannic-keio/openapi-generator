@@ -1,0 +1,44 @@
+{{!
+This template generates JSON deserialization logic for arrays and nested objects.
+This template calls itself recursively for nested arrays.
+}}
+{{#isArray}}
+{{#items}}
+{{#isPrimitiveType}}
+{{#isInteger}}
+arrayValue.push_back(item.asInt());
+{{/isInteger}}
+{{#isLong}}
+arrayValue.push_back(item.asInt64());
+{{/isLong}}
+{{#isFloat}}
+arrayValue.push_back(item.asFloat());
+{{/isFloat}}
+{{#isDouble}}
+arrayValue.push_back(item.asDouble());
+{{/isDouble}}
+{{#isBool}}
+arrayValue.push_back(item.asBool());
+{{/isBool}}
+{{#isString}}
+arrayValue.push_back(item.asString());
+{{/isString}}
+{{/isPrimitiveType}}
+{{#isModel}}
+{{{dataType}}} itemObj;
+from_json(item, itemObj);
+arrayValue.push_back(itemObj);
+{{/isModel}}
+{{#isArray}}
+{{{dataType}}} nestedArray;
+if (item.isArray()) {
+    for (const auto& nestedItem : item) {
+        const auto& item = nestedItem;
+        auto& arrayValue = nestedArray;
+        {{> model-from-json}}
+    }
+}
+arrayValue.push_back(nestedArray);
+{{/isArray}}
+{{/items}}
+{{/isArray}}

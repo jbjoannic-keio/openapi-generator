@@ -1,0 +1,63 @@
+{{>licenseInfo}}
+#include "Server.h"
+
+#include <algorithm>
+#include <thread>
+#include <mutex>
+
+{{#apiInfo}}{{#apis}}
+#include "api/{{classname}}.h"                        // Generated controller (per tag)
+{{/apis}}{{/apiInfo}}
+
+namespace {{apiNamespace}} {
+
+drogon::HttpAppFramework& Server::Configure(const Services& services,
+                                            const std::optional<std::string>& drogonConfig)
+{
+    static std::once_flag once;
+    auto& app = drogon::app();
+
+    if (drogonConfig) {
+        app.loadConfigFile(*drogonConfig);
+    }
+
+    std::call_once(once, [&]() {
+        // Register each controller with its injected service
+        {{#apiInfo}}{{#apis}}
+        if (!services.{{classname}}Service) {
+            throw std::invalid_argument("{{classname}}Service must be provided");
+        }
+        {
+            auto ctrl = std::make_shared<{{classname}}>(services.{{classname}}Service);
+            app.registerController(ctrl);
+        }
+        {{/apis}}{{/apiInfo}}
+    });
+
+    return app;
+}
+
+void Server::Run(const Services& services,
+                 const std::string& address,
+                 unsigned short port,
+                 std::optional<unsigned int> threads,
+                 const std::optional<std::string>& drogonConfig)
+{
+    auto& app = Configure(services, drogonConfig);
+
+    const unsigned int workers =
+        threads.has_value() ? *threads
+                            : std::max(1u, std::thread::hardware_concurrency());
+
+    app.setThreadNum(workers)
+       .addListener(address, port);
+
+    // The caller can also do:
+    // app.registerPostHandlingAdvice([](const drogon::RequestPtr&, const drogon::ResponsePtr& resp) {
+    //     resp->addHeader("Access-Control-Allow-Origin", "*");
+    // });
+
+    app.run(); // blocking
+}
+
+} // namespace {{apiNamespace}}

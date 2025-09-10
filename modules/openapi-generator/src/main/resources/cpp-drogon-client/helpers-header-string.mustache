@@ -1,0 +1,127 @@
+{{>licenseInfo}}
+/*
+ * {{prefix}}Helpers.h
+ *
+ * Generic helper utilities for generated Drogon projects.
+ * - Model/runtime helpers (validation, JSON conversion) — usable from models
+ * - HTTP helpers (variant → HttpResponsePtr)            — used by controllers
+ */
+
+#ifndef {{prefix}}Helpers_STRING_H_
+#define {{prefix}}Helpers_STRING_H_
+
+#include <map>
+#include <set>
+
+#include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
+#include <variant>
+#include <type_traits>
+#include <stdexcept>
+#include <optional>
+#include <unordered_map>
+
+/*  Drogon & JSON ----------------------------------------------------- */
+#include <drogon/HttpTypes.h>
+#include <drogon/HttpResponse.h>
+
+
+namespace {{helpersNamespace}}
+{
+
+/* ----- string‑conversion helpers (declared; implemented in .cpp) ---- */
+std::string toStringValue(const std::string &value);
+std::string toStringValue(const int32_t value);
+std::string toStringValue(const int64_t value);
+std::string toStringValue(const bool    value);
+std::string toStringValue(const float   value);
+std::string toStringValue(const double  value);
+
+template<typename T>
+std::string toStringValue(const std::optional<T> &oValue)
+{
+    return oValue.has_value() ? toStringValue(oValue.value()) : "";
+}
+
+bool fromStringValue(const std::string &inStr, std::string &value);
+bool fromStringValue(const std::string &inStr, int32_t    &value);
+bool fromStringValue(const std::string &inStr, int64_t    &value);
+bool fromStringValue(const std::string &inStr, bool       &value);
+bool fromStringValue(const std::string &inStr, float      &value);
+bool fromStringValue(const std::string &inStr, double     &value);
+
+template<typename T>
+bool fromStringValue(const std::string &inStr, std::optional<T> &oValue)
+{
+    return fromStringValue(inStr, oValue.value());
+}
+
+template<typename T>
+bool fromStringValue(const std::vector<std::string> &inStr,
+                     std::vector<T> &value)
+{
+    try
+    {
+        for (const auto & item : inStr)
+        {
+            T tmp{};
+            if (fromStringValue(item, tmp))
+                value.push_back(tmp);
+        }
+    }
+    catch (...)
+    {
+        return false;
+    }
+    return !value.empty();
+}
+
+template<typename T>
+bool fromStringValue(const std::string &inStr,
+                     std::vector<T> &value,
+                     char separator = ',')
+{
+    std::vector<std::string> parts;
+    std::istringstream       ss(inStr);
+    std::string              s;
+    while (std::getline(ss, s, separator))
+        parts.push_back(s);
+
+    return fromStringValue(parts, value);
+}
+
+
+// HELPER TO PARSE DROGON HEADERS
+inline std::string safe_at(const drogon::SafeStringMap<std::string> &drogonHeaders, const std::string &key)
+{
+    if(auto it = drogonHeaders.find(key); it != drogonHeaders.end())
+    {
+        return it->second;
+    }
+    return "";
+}
+
+/// STRUCTURE WRAPPER FOR RAW STRING
+struct RawResponse
+{
+    RawResponse() = default;
+    explicit RawResponse(drogon::HttpResponsePtr resp) : resp(std::move(resp)) {};
+    explicit RawResponse(std::string&& string)
+    {
+        resp = drogon::HttpResponse::newHttpResponse();
+        resp->setBody(std::move(string));
+    }
+    [[nodiscard]] std::string_view stringView() const { return resp->getBody(); }
+    [[nodiscard]] std::string copy() const { return std::string(resp->getBody()); }
+
+    drogon::HttpResponsePtr getPtr() const { return resp; }
+
+    private:
+    drogon::HttpResponsePtr resp;
+};
+
+} // namespace {{helpersNamespace}}
+
+#endif // {{prefix}}Helpers_STRING_H_
