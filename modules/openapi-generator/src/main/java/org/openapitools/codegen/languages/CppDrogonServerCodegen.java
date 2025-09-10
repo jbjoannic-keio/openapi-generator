@@ -576,6 +576,9 @@ public class CppDrogonServerCodegen extends AbstractCppCodegen {
                             CodegenProperty cp = fromProperty("response", responseSchema, false);
                             alt.put("hasBody", true);
                             alt.put("dataType", cp.dataType);
+                            if (STD_STRING.equals(cp.dataType)) {
+                                alt.put("isString", true);
+                            }
                         } else {
                             // should not happen with content, but be defensive
                             alt.put("hasBody", false);

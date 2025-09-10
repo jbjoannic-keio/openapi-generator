@@ -32,7 +32,7 @@ namespace {{apiNamespace}} {
 struct {{operationId}}{{statusCode}}ResponseHeaders {
 
 {{#headers}}
-    {{headerType}} {{sanitizedHeaderName}};
+    std::optional<{{headerType}}> {{sanitizedHeaderName}}{};
 {{/headers}}
 
     std::array<std::pair<std::string, std::string>, {{headers.size}}> toArray() const {
@@ -41,6 +41,23 @@ struct {{operationId}}{{statusCode}}ResponseHeaders {
             { "{{headerName}}", {{helpersNamespace}}::toStringValue({{sanitizedHeaderName}}) },
 {{/headers}}
         }};
+    }
+    {{operationId}}{{statusCode}}ResponseHeaders() = default;
+    explicit {{operationId}}{{statusCode}}ResponseHeaders(const drogon::SafeStringMap<std::string> &headers)
+    {
+        {{#headers}}
+            if (std::string v = {{helpersNamespace}}::safe_at(headers, "{{headerName}}"); !v.empty())
+            {
+                try
+                {
+                    {{helpersNamespace}}::fromStringValue(v, {{sanitizedHeaderName}});
+                }
+                catch (const std::exception &e)
+                {
+                    // continue
+                }
+            }
+        {{/headers}}
     }
 };
 {{/hasHeaders}}
@@ -55,7 +72,7 @@ using {{operationId}}Response = std::variant<
 {{#hasContentType}}
         std::integral_constant<drogon::ContentType, drogon::{{contentType}}>,
 {{/hasContentType}}
-        {{{dataType}}},
+        {{#isString}}{{helpersNamespace}}::RawResponse{{/isString}}{{^isString}}{{{dataType}}}{{/isString}},
         {{operationId}}{{statusCode}}ResponseHeaders>{{^-last}},{{/-last}}
 {{/hasBody}}
 {{^hasBody}}
@@ -71,7 +88,7 @@ using {{operationId}}Response = std::variant<
 {{#hasContentType}}
         std::integral_constant<drogon::ContentType, drogon::{{contentType}}>,
 {{/hasContentType}}
-        {{{dataType}}}>{{^-last}},{{/-last}}
+        {{#isString}}{{helpersNamespace}}::RawResponse{{/isString}}{{^isString}}{{{dataType}}}{{/isString}}>{{^-last}},{{/-last}}
 {{/hasBody}}
 {{^hasBody}}
     std::integral_constant<drogon::HttpStatusCode, drogon::{{statusCode}}>{{^-last}},{{/-last}}

@@ -38,12 +38,24 @@ std::string toStringValue(const bool    value);
 std::string toStringValue(const float   value);
 std::string toStringValue(const double  value);
 
+template<typename T>
+std::string toStringValue(const std::optional<T> &oValue)
+{
+    return oValue.has_value() ? toStringValue(oValue.value()) : "";
+}
+
 bool fromStringValue(const std::string &inStr, std::string &value);
 bool fromStringValue(const std::string &inStr, int32_t    &value);
 bool fromStringValue(const std::string &inStr, int64_t    &value);
 bool fromStringValue(const std::string &inStr, bool       &value);
 bool fromStringValue(const std::string &inStr, float      &value);
 bool fromStringValue(const std::string &inStr, double     &value);
+
+template<typename T>
+bool fromStringValue(const std::string &inStr, std::optional<T> &oValue)
+{
+    return fromStringValue(inStr, oValue.value());
+}
 
 template<typename T>
 bool fromStringValue(const std::vector<std::string> &inStr,
@@ -78,6 +90,35 @@ bool fromStringValue(const std::string &inStr,
 
     return fromStringValue(parts, value);
 }
+
+// HELPER TO PARSE DROGON HEADERS
+inline std::string safe_at(const drogon::SafeStringMap<std::string> &drogonHeaders, const std::string &key)
+{
+    if(auto it = drogonHeaders.find(key); it != drogonHeaders.end())
+    {
+        return it->second;
+    }
+    return "";
+}
+
+/// STRUCTURE WRAPPER FOR RAW STRING
+struct RawResponse
+{
+    RawResponse() = default;
+    explicit RawResponse(drogon::HttpResponsePtr resp) : resp(std::move(resp)) {};
+    explicit RawResponse(std::string&& string)
+    {
+        resp = drogon::HttpResponse::newHttpResponse();
+        resp->setBody(std::move(string));
+    }
+    [[nodiscard]] std::string_view stringView() const { return resp->getBody(); }
+    [[nodiscard]] std::string copy() const { return std::string(resp->getBody()); }
+
+    drogon::HttpResponsePtr getPtr() const { return resp; }
+
+    private:
+    drogon::HttpResponsePtr resp;
+};
 
 } // namespace {{helpersNamespace}}
 

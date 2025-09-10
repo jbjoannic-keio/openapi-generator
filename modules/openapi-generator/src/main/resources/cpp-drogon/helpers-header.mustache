@@ -29,6 +29,7 @@
 #include <drogon/HttpResponse.h>
 
 #include "{{prefix}}HelpersJson.h"
+#include "{{prefix}}HelpersString.h"
 
 namespace {{helpersNamespace}}
 {
@@ -159,25 +160,49 @@ inline drogon::HttpResponsePtr makeResponse(
         Body
     >& t)
 {
-    auto resp = drogon::HttpResponse::newHttpResponse();
-    resp->setStatusCode(S);
-    resp->setContentTypeCode(C);
+    drogon::HttpResponsePtr resp;
 
-    const auto& body = std::get<2>(t);
-    if constexpr (C == drogon::CT_APPLICATION_JSON)
+    if constexpr (C != drogon::CT_APPLICATION_JSON && std::is_same_v<Body, RawResponse>)
     {
-        resp->setBody(json::dumpJson(json::toJson::toJson(body)));
+        // Cas spécial RawResponse → on prend directement l’ownership
+        auto& body = std::get<2>(t);
+        resp = body.getPtr();
+        resp->setStatusCode(S);
+        resp->setContentTypeCode(C);
     }
     else
     {
-        if constexpr (std::is_same_v<Body, std::string>) {
+        resp = drogon::HttpResponse::newHttpResponse();
+        resp->setStatusCode(S);
+        resp->setContentTypeCode(C);
+
+        const auto& body = std::get<2>(t);
+
+        if constexpr (C == drogon::CT_APPLICATION_JSON)
+        {
+            resp->setBody(json::dumpJson(json::toJson::toJson(body)));
+        }
+        else if constexpr (std::is_same_v<Body, std::string>)
+        {
             resp->setBody(body);
-        } else if constexpr (std::is_same_v<Body, std::string_view>) {
+        }
+        else if constexpr (std::is_same_v<Body, std::string_view>)
+        {
             resp->setBody(std::string(body));
-        } else if constexpr (std::is_same_v<Body, std::vector<std::uint8_t>>) {
+        }
+        else if constexpr (std::is_same_v<Body, std::vector<std::uint8_t>>)
+        {
             resp->setBody(std::string(reinterpret_cast<const char*>(body.data()), body.size()));
-        } else {
-            // Fallback: try JSON serialization then set that string
+        }
+        else if constexpr (std::is_same_v<Body, RawResponse>)
+        {
+            // Ne devrait pas arriver car géré plus haut
+            static_assert(!std::is_same_v<Body, RawResponse>,
+                          "Unexpected RawResponse handling path");
+        }
+        else
+        {
+            // fallback JSON
             resp->setBody(json::dumpJson(json::toJson::toJson(body)));
         }
     }
@@ -185,7 +210,6 @@ inline drogon::HttpResponsePtr makeResponse(
 }
 
 
-// tuple<Status, ContentType, Body> → typed response
 template<drogon::HttpStatusCode S, drogon::ContentType C, class Body, class Headers>
 inline drogon::HttpResponsePtr makeResponse(
     const std::tuple<
@@ -195,33 +219,59 @@ inline drogon::HttpResponsePtr makeResponse(
         Headers
     >& t)
 {
-    auto resp = drogon::HttpResponse::newHttpResponse();
-    resp->setStatusCode(S);
-    resp->setContentTypeCode(C);
+    drogon::HttpResponsePtr resp;
 
-    const auto& body = std::get<2>(t);
-    if constexpr (C == drogon::CT_APPLICATION_JSON)
+    if constexpr (C != drogon::CT_APPLICATION_JSON && std::is_same_v<Body, RawResponse>)
     {
-        resp->setBody(json::dumpJson(json::toJson::toJson(body)));
+        // Cas spécial RawResponse → on prend directement l’ownership
+        auto& body = std::get<2>(t);
+        resp = body.getPtr();
+        resp->setStatusCode(S);
+        resp->setContentTypeCode(C);
     }
     else
     {
-        if constexpr (std::is_same_v<Body, std::string>) {
+        resp = drogon::HttpResponse::newHttpResponse();
+        resp->setStatusCode(S);
+        resp->setContentTypeCode(C);
+
+        const auto& body = std::get<2>(t);
+
+        if constexpr (C == drogon::CT_APPLICATION_JSON)
+        {
+            resp->setBody(json::dumpJson(json::toJson::toJson(body)));
+        }
+        else if constexpr (std::is_same_v<Body, std::string>)
+        {
             resp->setBody(body);
-        } else if constexpr (std::is_same_v<Body, std::string_view>) {
+        }
+        else if constexpr (std::is_same_v<Body, std::string_view>)
+        {
             resp->setBody(std::string(body));
-        } else if constexpr (std::is_same_v<Body, std::vector<std::uint8_t>>) {
+        }
+        else if constexpr (std::is_same_v<Body, std::vector<std::uint8_t>>)
+        {
             resp->setBody(std::string(reinterpret_cast<const char*>(body.data()), body.size()));
-        } else {
-            // Fallback: try JSON serialization then set that string
+        }
+        else if constexpr (std::is_same_v<Body, RawResponse>)
+        {
+            // Ne devrait pas arriver car géré plus haut
+            static_assert(!std::is_same_v<Body, RawResponse>,
+                          "Unexpected RawResponse handling path");
+        }
+        else
+        {
+            // fallback JSON
             resp->setBody(json::dumpJson(json::toJson::toJson(body)));
         }
     }
 
+    // Headers (dans tous les cas)
     const auto& headers = std::get<3>(t);
     for (auto&& [key, value] : headers.toArray()) {
         resp->addHeader(key, value);
     }
+
     return resp;
 }
 
