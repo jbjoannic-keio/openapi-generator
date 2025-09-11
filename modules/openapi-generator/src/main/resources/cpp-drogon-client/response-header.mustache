@@ -93,7 +93,7 @@ using {{operationId}}Response = std::variant<
         {{#isString}}{{helpersNamespace}}::RawResponse{{/isString}}{{^isString}}{{{dataType}}}{{/isString}}>{{^-last}},{{/-last}}
 {{/hasBody}}
 {{^hasBody}}
-    std::integral_constant<drogon::HttpStatusCode, drogon::{{statusCode}}>{{^-last}},{{/-last}}
+    std::tuple<std::integral_constant<drogon::HttpStatusCode, drogon::{{statusCode}}>>{{^-last}},{{/-last}}
 {{/hasBody}}
 {{/hasHeaders}}
 {{/vendorExtensions.x-codegen-response-variants-flat}}>;

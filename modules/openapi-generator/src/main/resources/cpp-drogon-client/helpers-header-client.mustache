@@ -20,6 +20,7 @@
 
 
 #include "{{prefix}}HelpersJson.h"
+#include "{{prefix}}HelpersString.h"
 
 namespace {{helpersNamespace}}
 {
@@ -29,28 +30,40 @@ namespace detail {
 template<class Body>
 Body parseBody(const drogon::HttpResponsePtr& resp, drogon::ContentType ctype)
 {
-    if (ctype == drogon::CT_APPLICATION_JSON)
+    if constexpr (json::detail::has_static_from_json<Body>::value
+               || json::detail::has_static_fromJson<Body>::value
+               || json::detail::has_free_from_json<Body>::value
+               || json::detail::has_free_fromJson<Body>::value
+               || json::detail::is_json_container_v<Body>)
     {
+        // Catégorie "Body JSON"
+        if (ctype != drogon::CT_APPLICATION_JSON)
+        {
+            throw std::runtime_error("Invalid Content-Type for JSON Body");
+        }
         auto json = resp->getJsonObject();
         return json::fromJson::fromJson<Body>(*json);
+    } else if constexpr (std::is_same_v<Body, RawResponse>)
+    {
+        return RawResponse{resp};
+    }
+    else if constexpr (std::is_same_v<Body, std::string>)
+    {
+        return resp->getBody();
+    }
+    else if constexpr (std::is_same_v<Body, std::vector<std::uint8_t>>)
+    {
+        const auto &s = resp->getBody();
+        return std::vector<std::uint8_t>(s.begin(), s.end());
+    }
+    else if constexpr (std::is_constructible_v<Body, std::string>)
+    {
+        return Body{resp->getBody()};
     }
     else
     {
-        if constexpr (std::is_same_v<Body, std::string>)
-        {
-            return resp->getBody();
-        }
-        else if constexpr (std::is_same_v<Body, std::vector<std::uint8_t>>)
-        {
-            const auto &s = resp->getBody();
-            return std::vector<std::uint8_t>(s.begin(), s.end());
-        } else if constexpr (std::is_constructible_v<Body, std::string>)
-        {
-            return Body{resp->getBody()};
-        } else
-        {
-            static_assert(always_false_v<Body>, "Unsupported non-Json body type");
-        }
+        static_assert(!std::is_same_v<Body, Body>,
+                      "Unsupported Body type (not JSON-deserializable, not string-like)");
     }
 }
 
@@ -73,28 +86,31 @@ struct TryAlt
                 using Headers = std::tuple_element_t<1, Alt>;
                 Headers headers{resp->headers()};
                 return Variant{Alt{Status{}, std::move(headers)}};
-            }
-            using CType = std::tuple_element_t<1, Alt>;
-            //// N >=3 -> a content type is provided
-            if (resp->getContentType() == CType::value)
+            } else if constexpr (N == 3 || N == 4)
             {
-                using Body = std::tuple_element_t<2, Alt>;
-                if constexpr (N == 3)
-                {  // tuple<Status, CType, Body>
-                    Body body = parseBody<Body>(resp, CType::value);
-                    return Variant{Alt{Status{}, CType{}, std::move(body)}};
-                }
-                else if constexpr (N == 4)
-                {  // tuple<Status, CType, Body, headers>
-                    using Headers = std::tuple_element_t<3, Alt>;
-                    Body    body  = parseBody<Body>(resp, CType::value);
-                    Headers headers{resp->headers()};
-                    return Variant{Alt{Status{}, CType{}, std::move(body), std::move(headers)}};
-                }
-                else
+                using CType = std::tuple_element_t<1, Alt>;
+                if (resp->getContentType() == CType::value)
                 {
-                    static_assert(false, "WRONG HEADERS FORMAT");
+                    using Body = std::tuple_element_t<2,Alt>;
+                    Body body = parseBody<Body>(resp, CType::value);
+
+                    if constexpr (N == 3)
+                    {
+                        // tuple(Status, CType, Body)
+                        return Variant{Alt{Status{}, CType{}, std::move(body)}};
+                    }
+                    else // N == 4
+                    {
+                        // tuple(Status, CType, Body, Headers)
+                        using Headers = std::tuple_element_t<3, Alt>;
+                        Headers headers{resp->headers()};
+                        return Variant{Alt{Status{}, CType{}, std::move(body), std::move(headers)}};
+                    }
                 }
+            }
+            else
+            {
+                static_assert(always_false_v<Alt>, "WRONG HEADERS FORMAT");
             }
         }
         if constexpr (I + 1 < std::variant_size_v<Variant>)

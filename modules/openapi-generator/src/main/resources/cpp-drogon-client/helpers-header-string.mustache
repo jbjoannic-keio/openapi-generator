@@ -122,6 +122,29 @@ struct RawResponse
     drogon::HttpResponsePtr resp;
 };
 
+
+/// PATH
+inline void replaceAll(std::string& str, const std::string& from, const std::string &to)
+{
+    if (from.empty()) return;
+    size_t start_pos = 0;
+    while ((start_pos = str.find(from, start_pos)) != std::string::npos)
+    {
+        str.replace(start_pos, from.length(), to);
+        start_pos += to.length();
+    }
+}
+template <typename... Args>
+std::string formatClientPath(std::string path, Args&&... args)
+{
+    int idx = 1;
+    ((
+        replaceAll(path, "{" + toStringValue(idx++) + "}", toStringValue(std::forward<Args>(args)))
+    ), ...);
+    return path;
+}
+
+
 } // namespace {{helpersNamespace}}
 
 #endif // {{prefix}}Helpers_STRING_H_
