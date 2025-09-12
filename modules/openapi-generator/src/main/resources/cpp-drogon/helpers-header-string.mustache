@@ -21,6 +21,7 @@
 #include <type_traits>
 #include <stdexcept>
 #include <optional>
+#include <array>
 
 /*  Drogon & JSON ----------------------------------------------------- */
 #include <drogon/HttpTypes.h>
@@ -37,6 +38,7 @@ std::string toStringValue(const int64_t value);
 std::string toStringValue(const bool    value);
 std::string toStringValue(const float   value);
 std::string toStringValue(const double  value);
+std::string toStringValue(const size_t value);
 
 template<typename T>
 std::string toStringValue(const std::optional<T> &oValue)
@@ -119,6 +121,47 @@ struct RawResponse
     private:
     drogon::HttpResponsePtr resp;
 };
+
+/// PATH
+inline void replaceAll(std::string& str, const std::string& from, const std::string &to)
+{
+    if (from.empty()) return;
+    size_t start_pos = 0;
+    while ((start_pos = str.find(from, start_pos)) != std::string::npos)
+    {
+        str.replace(start_pos, from.length(), to);
+        start_pos += to.length();
+    }
+}
+
+// from /path/{1} to /path/pathParam?queryName=queryParam&...
+template <size_t pathN, size_t queryN>
+std::string formatClientPath(
+    std::string pathWithoutQuery,
+    const std::array<std::pair<std::string, std::string>, pathN>& pathParameters,
+    const std::array<std::pair<std::string, std::string>, queryN>& queryParameters)
+{
+    size_t idx = 1;
+    for (const auto& [pathParamName, pathParam] : pathParameters)
+    {
+        // Remplace {1}, {2}, ...
+        replaceAll(pathWithoutQuery, "{" + toStringValue(idx++) + "}", pathParam);
+    }
+
+    if constexpr (queryN > 0) {
+        pathWithoutQuery.push_back('?');
+        for (size_t i = 0; i < queryParameters.size(); ++i)
+        {
+            const auto& [queryParamName, queryParam] = queryParameters[i];
+            if (i > 0) pathWithoutQuery.push_back('&');
+            pathWithoutQuery.append(queryParamName)
+                            .append("=")
+                            .append(queryParam);
+        }
+    }
+
+    return pathWithoutQuery;
+}
 
 } // namespace {{helpersNamespace}}
 

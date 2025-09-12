@@ -4,9 +4,11 @@
 
 #include "{{prefix}}Helpers.h"
 #include "{{prefix}}HelpersJson.h"
+#include "{{prefix}}HelpersString.h"
 #include <json/json.h>
 #include <memory>
 #include <utility>
+#include <array>
 
 #include "{{prefix}}HelpersClient.h"
 
@@ -33,10 +35,18 @@ namespace {{apiNamespace}} {
     // Prepare the request
     auto req = drogon::HttpRequest::newHttpRequest();
     req->setMethod(drogon::HttpMethod::{{httpMethod}});
-    auto path = "{{{vendorExtensions.x-codegen-path-complete}}}";
-    auto pathFormatted = {{helpersNamespace}}::formatClientPath(path {{#allParams}}
-    {{^isModel}},{{#isHeaderParam}}header_{{/isHeaderParam}}{{#isQueryParam}}query_{{/isQueryParam}}{{#isPathParam}}path_{{/isPathParam}}{{paramName}}{{/isModel}}{{/allParams}});
+
+
+    // path manipulation
+    std::string pathWithoutQuery = "{{{vendorExtensions.x-codegen-path-without-query}}}";
+    {{#hasPathParams}}auto pathParams = std::to_array<std::pair<std::string, std::string>>({ {{#pathParams}}{{#isPathParam}}{"{{paramName}}", {{helpersNamespace}}::toStringValue(path_{{paramName}})}{{^-last}}, {{/-last}}{{/isPathParam}}{{/pathParams}} });{{/hasPathParams}}
+    {{^hasPathParams}}std::array<std::pair<std::string, std::string>, 0> pathParams{};{{/hasPathParams}}
+    {{#hasQueryParams}}auto queryParams = std::to_array<std::pair<std::string, std::string>>({ {{#queryParams}}{{#isQueryParam}}{"{{paramName}}", {{helpersNamespace}}::toStringValue(query_{{paramName}})}{{^-last}}, {{/-last}}{{/isQueryParam}}{{/queryParams}} }); {{/hasQueryParams}}
+    {{^hasQueryParams}}std::array<std::pair<std::string, std::string>, 0> queryParams{}; {{/hasQueryParams}}
+    auto pathFormatted = {{helpersNamespace}}::formatClientPath(pathWithoutQuery, pathParams, queryParams);
     req->setPath(pathFormatted);
+
+
     auto [result, response] = mHttpClient->sendRequest(req);
     if (result == drogon::ReqResult::Ok)
     {

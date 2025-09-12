@@ -27,6 +27,15 @@ namespace {{helpersNamespace}}
 
 template<class> inline constexpr bool always_false_v = false;
 namespace detail {
+
+/**
+ * @brief Parse the body into a usable c++ class given the runtime
+ *
+ * @tparam Body
+ * @param resp
+ * @param ctype
+ * @return Body
+ */
 template<class Body>
 Body parseBody(const drogon::HttpResponsePtr& resp, drogon::ContentType ctype)
 {
@@ -36,10 +45,11 @@ Body parseBody(const drogon::HttpResponsePtr& resp, drogon::ContentType ctype)
                || json::detail::has_free_fromJson<Body>::value
                || json::detail::is_json_container_v<Body>)
     {
-        // Catégorie "Body JSON"
-        if (ctype != drogon::CT_APPLICATION_JSON)
+        // Should not get there
+        if constexpr (ctype != drogon::CT_APPLICATION_JSON)
         {
-            throw std::runtime_error("Invalid Content-Type for JSON Body");
+            static_assert(!std::is_same_v<Body, Body>,
+                      "Unsupported Body type (not JSON-deserializable, not string-like)");
         }
         auto json = resp->getJsonObject();
         return json::fromJson::fromJson<Body>(*json);
