@@ -100,6 +100,8 @@ public class CppDrogonServerCodegen extends AbstractCppCodegen {
         DROGON_CONTENT_TYPE_MAPPING.put("application/pdf", "CT_APPLICATION_PDF");
         DROGON_CONTENT_TYPE_MAPPING.put("application/zip", "CT_APPLICATION_ZIP");
         DROGON_CONTENT_TYPE_MAPPING.put("application/x-protobuf", "CT_APPLICATION_X_PROTOBUF");
+        DROGON_CONTENT_TYPE_MAPPING.put("video/mp4", "CT_VIDEO_MP4");
+        DROGON_CONTENT_TYPE_MAPPING.put("multipart/x-mixed-replace", "CT_CUSTOM");
         DROGON_CONTENT_TYPE_MAPPING.put("default", "CT_TEXT_PLAIN");
     }
 

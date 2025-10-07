@@ -168,13 +168,17 @@ inline drogon::HttpResponsePtr makeResponse(
         auto& body = std::get<2>(t);
         resp = body.getPtr();
         resp->setStatusCode(S);
-        resp->setContentTypeCode(C);
+        if constexpr (C != drogon::CT_CUSTOM) {
+            resp->setContentTypeCode(C);
+        }
     }
     else
     {
         resp = drogon::HttpResponse::newHttpResponse();
         resp->setStatusCode(S);
-        resp->setContentTypeCode(C);
+        if constexpr (C != drogon::CT_CUSTOM) {
+            resp->setContentTypeCode(C);
+        }
 
         const auto& body = std::get<2>(t);
 
@@ -227,13 +231,17 @@ inline drogon::HttpResponsePtr makeResponse(
         auto& body = std::get<2>(t);
         resp = body.getPtr();
         resp->setStatusCode(S);
-        resp->setContentTypeCode(C);
+        if constexpr (C != drogon::CT_CUSTOM) {
+            resp->setContentTypeCode(C);
+        }
     }
     else
     {
         resp = drogon::HttpResponse::newHttpResponse();
         resp->setStatusCode(S);
-        resp->setContentTypeCode(C);
+        if constexpr (C != drogon::CT_CUSTOM) {
+            resp->setContentTypeCode(C);
+        }
 
         const auto& body = std::get<2>(t);
 
