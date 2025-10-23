@@ -754,11 +754,19 @@ public class CppDrogonServerCodegen extends AbstractCppCodegen {
                 + op.httpMethod.substring(1).toLowerCase(Locale.ROOT);
 
         boolean isParsingSupported = true;
-        for (CodegenParameter param : op.allParams) {
-            boolean paramSupportsParsing = (!param.isFormParam && !param.isFile && !param.isCookieParam);
-            isParsingSupported = isParsingSupported && paramSupportsParsing;
+        List<List<CodegenParameter>> lists = Arrays.asList(
+            op.allParams, op.queryParams, op.headerParams, op.pathParams,
+            op.cookieParams, op.formParams, op.requiredParams, op.optionalParams
+        );
 
-            postProcessSingleParam(param);
+        for (List<CodegenParameter> list : lists) {
+            if (list == null) continue;
+            for (CodegenParameter param : list) {
+                boolean paramSupportsParsing = (!param.isFormParam && !param.isFile && !param.isCookieParam);
+                isParsingSupported = isParsingSupported && paramSupportsParsing;
+
+                postProcessSingleParam(param);
+            }
         }
         op.vendorExtensions.put("x-codegen-drogon-is-parsing-supported", isParsingSupported);
 
@@ -789,6 +797,7 @@ public class CppDrogonServerCodegen extends AbstractCppCodegen {
                     param.baseType = "std::optional<" + param.baseType + ">";
                 }
             } else {
+                param.isOptional = false;
                 // Ensure model namespace for non-primitive when required
                 if (!param.isPrimitiveType) {
                     param.dataType = dataTypeWithNamespace;

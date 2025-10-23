@@ -33,10 +33,8 @@ virtual ~{{classname}}Interface() = default;
 /// <summary>{{summary}}</summary>
 {{#notes}}/// <remarks>{{notes}}</remarks>{{/notes}}
 {{#vendorExtensions.x-codegen-drogon-is-parsing-supported}}
-virtual void {{vendorExtensions.operationIdSnakeCase}}({{#allParams}}
-    const {{#isModel}}{{#isOptional}}{{/isOptional}}{{modelNamespace}}::{{/isModel}}{{{dataType}}}& {{#isHeaderParam}}header_{{/isHeaderParam}}{{#isQueryParam}}query_{{/isQueryParam}}{{#isPathParam}}path_{{/isPathParam}}{{paramName}}{{^-last}}, {{/-last}}
-{{/allParams}}{{#hasParams}}, {{/hasParams}}
-    {{operationId}}Response& response) = 0;
+virtual {{operationId}}Response {{vendorExtensions.operationIdSnakeCase}}({{#allParams}}
+    const {{#isModel}}{{#isOptional}}{{/isOptional}}{{modelNamespace}}::{{/isModel}}{{{dataType}}}& {{#isHeaderParam}}header_{{/isHeaderParam}}{{#isQueryParam}}query_{{/isQueryParam}}{{#isPathParam}}path_{{/isPathParam}}{{paramName}}{{^-last}}, {{/-last}}{{/allParams}}) = 0;
 {{/vendorExtensions.x-codegen-drogon-is-parsing-supported}}
 
 {{^vendorExtensions.x-codegen-drogon-is-parsing-supported}}

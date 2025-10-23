@@ -173,16 +173,13 @@ void {{classname}}::{{vendorExtensions.operationIdSnakeCase}}_handler(
         {{/hasHeaderParams}}
 
         /* -------- delegate to service -------- */
-        {{operationId}}Response respVariant;
-        service->{{vendorExtensions.operationIdSnakeCase}}(
+        {{operationId}}Response respVariant = service->{{vendorExtensions.operationIdSnakeCase}}(
             {{#allParams}}
             {{#isHeaderParam}}{{paramName}}{{/isHeaderParam}}
             {{#isQueryParam}}{{paramName}}{{/isQueryParam}}
             {{#isPathParam}}path_{{paramName}}{{/isPathParam}}
             {{#isBodyParam}}{{paramName}}{{/isBodyParam}}{{^-last}}, {{/-last}}
             {{/allParams}}
-            {{#hasParams}}, {{/hasParams}}
-            respVariant
         );
 
         /* -------- serialize & return -------- */
