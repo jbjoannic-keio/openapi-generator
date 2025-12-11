@@ -77,39 +77,6 @@ void {{classname}}::{{vendorExtensions.operationIdSnakeCase}}_handler(
 {{#vendorExtensions.x-codegen-drogon-is-parsing-supported}}
         /* -------- parameter extraction -------- */
 
-        {{#hasBodyParam}}
-        {{#bodyParam}}
-        {{^isPrimitiveType}}
-        // Body: JSON → {{dataType}}
-        {{{dataType}}} {{paramName}};
-        try {
-            // Make helpers' container overloads visible; models still resolve via ADL.
-
-            if (auto json = req->getJsonObject()) {
-                {{helpersNamespace}}::json::fromJson::fromJson(*json, {{paramName}});
-            } else {
-                Json::CharReaderBuilder b;
-                std::unique_ptr<Json::CharReader> reader(b.newCharReader());
-                Json::Value jsonBody;
-                std::string errs;
-                const char* data = req->bodyData();
-                const size_t len = req->bodyLength();
-                if (!reader->parse(data, data + len, &jsonBody, &errs)) {
-                    throw std::invalid_argument("Invalid JSON body");
-                }
-                {{helpersNamespace}}::json::fromJson::fromJson(jsonBody, {{paramName}});
-            }
-
-            // Validate only if the type provides validate(); no-op otherwise
-            {{helpersNamespace}}::autoValidate({{paramName}});
-        } catch (const std::exception& e) {
-            handleParsingException(e, std::move(cb));
-            return;
-        }
-        {{/isPrimitiveType}}
-        {{/bodyParam}}
-        {{/hasBodyParam}}
-
         {{#hasQueryParams}}
         // --- query params ---
         {{#queryParams}}
@@ -172,14 +139,79 @@ void {{classname}}::{{vendorExtensions.operationIdSnakeCase}}_handler(
         {{/headerParams}}
         {{/hasHeaderParams}}
 
+        {{#isMultipart}}
+        {{#bodyParam}}
+            {{{dataType}}} {{paramName}};
+            drogon::MultiPartParser parser;
+            if (req->getContentType() != drogon::CT_MULTIPART_FORM_DATA) {
+                throw std::invalid_argument("Expected multipart/form-data body");
+            }
+            if (parser.parse(req) != 0) {
+                throw std::invalid_argument("Invalid multipart/form-data body");
+            }
+            const auto &files = parser.getFiles();
+            if (files.empty()) {
+                throw std::invalid_argument("No file in multipart/form-data body");
+            }
+            const auto &file = files.front();
+            const auto &params = parser.getParameters();
+            auto it = params.find("{{vendorExtensions.x-drogon-multipart-json-name}}");
+            if (it == params.end()) {
+                throw std::invalid_argument("Missing '{{vendorExtensions.x-drogon-multipart-json-name}}' field in multipart body");
+            }
+
+            Json::CharReaderBuilder b;
+            std::unique_ptr<Json::CharReader> reader(b.newCharReader());
+            Json::Value partJson;
+            std::string errs;
+            const auto &s = it->second;
+            if (!reader->parse(s.data(), s.data() + s.size(), &partJson, &errs)) {
+                throw std::invalid_argument(std::string("Invalid JSON for '{{vendorExtensions.x-drogon-multipart-json-name}}': ") + errs);
+            }
+            {{helpersNamespace}}::json::fromJson::fromJson(partJson, {{paramName}});
+            {{helpersNamespace}}::autoValidate({{paramName}});
+        {{/bodyParam}}
+        {{/isMultipart}}
+
+        {{^isMultipart}}
+        {{#hasBodyParam}}
+        {{#bodyParam}}
+        {{^isPrimitiveType}}
+        // Body: JSON → {{dataType}}
+        {{{dataType}}} {{paramName}};
+        try {
+            // Make helpers' container overloads visible; models still resolve via ADL.
+
+            if (auto json = req->getJsonObject()) {
+                {{helpersNamespace}}::json::fromJson::fromJson(*json, {{paramName}});
+            } else {
+                Json::CharReaderBuilder b;
+                std::unique_ptr<Json::CharReader> reader(b.newCharReader());
+                Json::Value jsonBody;
+                std::string errs;
+                const char* data = req->bodyData();
+                const size_t len = req->bodyLength();
+                if (!reader->parse(data, data + len, &jsonBody, &errs)) {
+                    throw std::invalid_argument("Invalid JSON body");
+                }
+                {{helpersNamespace}}::json::fromJson::fromJson(jsonBody, {{paramName}});
+            }
+
+            // Validate only if the type provides validate(); no-op otherwise
+            {{helpersNamespace}}::autoValidate({{paramName}});
+        } catch (const std::exception& e) {
+            handleParsingException(e, std::move(cb));
+            return;
+        }
+        {{/isPrimitiveType}}
+        {{/bodyParam}}
+        {{/hasBodyParam}}
+        {{/isMultipart}}
+
         /* -------- delegate to service -------- */
-        {{operationId}}Response respVariant = service->{{vendorExtensions.operationIdSnakeCase}}(
-            {{#allParams}}
-            {{#isHeaderParam}}{{paramName}}{{/isHeaderParam}}
-            {{#isQueryParam}}{{paramName}}{{/isQueryParam}}
-            {{#isPathParam}}path_{{paramName}}{{/isPathParam}}
-            {{#isBodyParam}}{{paramName}}{{/isBodyParam}}{{^-last}}, {{/-last}}
-            {{/allParams}}
+        {{operationId}}Response respVariant = service->{{vendorExtensions.operationIdSnakeCase}}({{#allParams}}
+            {{#isHeaderParam}}{{paramName}}{{/isHeaderParam}}{{#isQueryParam}}{{paramName}}{{/isQueryParam}}{{#isPathParam}}path_{{paramName}}{{/isPathParam}}{{#isBodyParam}}{{paramName}}{{/isBodyParam}}{{^-last}},{{/-last}}{{/allParams}}{{#isMultipart}}{{#hasParams}},{{/hasParams}}
+            file{{/isMultipart}}
         );
 
         /* -------- serialize & return -------- */
@@ -190,9 +222,8 @@ void {{classname}}::{{vendorExtensions.operationIdSnakeCase}}_handler(
 {{^vendorExtensions.x-codegen-drogon-is-parsing-supported}}
         // Fallback: give raw request to service (e.g., multipart/form-data, file).
         // The service may choose to call the callback directly.
-        {{operationId}}Response respVariant;
-        service->{{vendorExtensions.operationIdSnakeCase}}(
-            req, std::move(cb){{#pathParams}}, path_{{paramName}}{{/pathParams}}, respVariant
+        {{operationId}}Response respVariant = service->{{vendorExtensions.operationIdSnakeCase}}(
+            req, std::move(cb){{#pathParams}}, path_{{paramName}}{{/pathParams}}
         );
         return;
 {{/vendorExtensions.x-codegen-drogon-is-parsing-supported}}
