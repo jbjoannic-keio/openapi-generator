@@ -750,7 +750,6 @@ public class CppDrogonServerCodegen extends AbstractCppCodegen {
             cppType = prefixWithNameSpaceIfNeeded(cppType);
         }
 
-        System.out.println(cp);
         body.dataType = cppType;
         body.baseType = cp.baseType;
         body.isPrimitiveType = cp.isPrimitiveType;
