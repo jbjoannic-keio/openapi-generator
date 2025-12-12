@@ -141,35 +141,35 @@ void {{classname}}::{{vendorExtensions.operationIdSnakeCase}}_handler(
 
         {{#isMultipart}}
         {{#bodyParam}}
-            {{{dataType}}} {{paramName}};
-            drogon::MultiPartParser parser;
-            if (req->getContentType() != drogon::CT_MULTIPART_FORM_DATA) {
-                throw std::invalid_argument("Expected multipart/form-data body");
-            }
-            if (parser.parse(req) != 0) {
-                throw std::invalid_argument("Invalid multipart/form-data body");
-            }
-            const auto &files = parser.getFiles();
-            if (files.empty()) {
-                throw std::invalid_argument("No file in multipart/form-data body");
-            }
-            const auto &file = files.front();
-            const auto &params = parser.getParameters();
-            auto it = params.find("{{vendorExtensions.x-drogon-multipart-json-name}}");
-            if (it == params.end()) {
-                throw std::invalid_argument("Missing '{{vendorExtensions.x-drogon-multipart-json-name}}' field in multipart body");
-            }
+        {{{dataType}}} {{paramName}};
+        drogon::MultiPartParser parser;
+        if (req->getContentType() != drogon::CT_MULTIPART_FORM_DATA) {
+            throw std::invalid_argument("Expected multipart/form-data body");
+        }
+        if (parser.parse(req) != 0) {
+            throw std::invalid_argument("Invalid multipart/form-data body");
+        }
+        const auto &files = parser.getFiles();
+        if (files.empty()) {
+            throw std::invalid_argument("No file in multipart/form-data body");
+        }
+        const auto &file = files.front();
+        const auto &params = parser.getParameters();
+        auto it = params.find("{{vendorExtensions.x-drogon-multipart-json-name}}");
+        if (it == params.end()) {
+            throw std::invalid_argument("Missing '{{vendorExtensions.x-drogon-multipart-json-name}}' field in multipart body");
+        }
 
-            Json::CharReaderBuilder b;
-            std::unique_ptr<Json::CharReader> reader(b.newCharReader());
-            Json::Value partJson;
-            std::string errs;
-            const auto &s = it->second;
-            if (!reader->parse(s.data(), s.data() + s.size(), &partJson, &errs)) {
-                throw std::invalid_argument(std::string("Invalid JSON for '{{vendorExtensions.x-drogon-multipart-json-name}}': ") + errs);
-            }
-            {{helpersNamespace}}::json::fromJson::fromJson(partJson, {{paramName}});
-            {{helpersNamespace}}::autoValidate({{paramName}});
+        Json::CharReaderBuilder b;
+        std::unique_ptr<Json::CharReader> reader(b.newCharReader());
+        Json::Value partJson;
+        std::string errs;
+        const auto &s = it->second;
+        if (!reader->parse(s.data(), s.data() + s.size(), &partJson, &errs)) {
+            throw std::invalid_argument(std::string("Invalid JSON for '{{vendorExtensions.x-drogon-multipart-json-name}}': ") + errs);
+        }
+        {{helpersNamespace}}::json::fromJson::fromJson(partJson, {{paramName}});
+        {{helpersNamespace}}::autoValidate({{paramName}});
         {{/bodyParam}}
         {{/isMultipart}}
 
