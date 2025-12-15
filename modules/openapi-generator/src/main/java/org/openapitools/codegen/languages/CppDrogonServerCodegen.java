@@ -614,7 +614,9 @@ public class CppDrogonServerCodegen extends AbstractCppCodegen {
 
         }
 
-        processMultipartRequestBody(operation, op);
+        if (op.isMultipart) {
+            processMultipartRequestBody(operation, op);
+        }
 
         // Build pathSimple and pathComplete for Drogon
         String pathSimple = path;
@@ -660,17 +662,11 @@ public class CppDrogonServerCodegen extends AbstractCppCodegen {
     }
 
     private void processMultipartRequestBody(Operation operation, CodegenOperation op) {
+		// find the multipart section to build the bodyParam
         RequestBody requestBody = ModelUtils.getReferencedRequestBody(openAPI, operation.getRequestBody());
         if (requestBody == null || requestBody.getContent() == null || requestBody.getContent().isEmpty()) {
             return;
         }
-
-        MediaType multipart = requestBody.getContent().get("multipart/form-data");
-        if (multipart == null) {
-            return;
-        }
-
-        op.isMultipart = true;
 
         Schema schema = ModelUtils.getSchemaFromRequestBody(requestBody);
         if (schema == null) {
@@ -717,6 +713,7 @@ public class CppDrogonServerCodegen extends AbstractCppCodegen {
     }
 
     private void bodyParamForMultipart(CodegenOperation op, String jsonName, Schema jsonSchema) {
+		// build a bodyParam to fill the mustache template correctly
         CodegenParameter body = op.bodyParam;
         if (body == null) {
             body = new CodegenParameter();

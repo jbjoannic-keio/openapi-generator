@@ -209,8 +209,11 @@ void {{classname}}::{{vendorExtensions.operationIdSnakeCase}}_handler(
         {{/isMultipart}}
 
         /* -------- delegate to service -------- */
-        {{operationId}}Response respVariant = service->{{vendorExtensions.operationIdSnakeCase}}({{#allParams}}
-            {{#isHeaderParam}}{{paramName}}{{/isHeaderParam}}{{#isQueryParam}}{{paramName}}{{/isQueryParam}}{{#isPathParam}}path_{{paramName}}{{/isPathParam}}{{#isBodyParam}}{{paramName}}{{/isBodyParam}}{{^-last}},{{/-last}}{{/allParams}}{{#isMultipart}}{{#hasParams}},{{/hasParams}}
+        {{operationId}}Response respVariant = service->{{vendorExtensions.operationIdSnakeCase}}({{#allParams}}{{#isHeaderParam}}
+            {{paramName}}{{/isHeaderParam}}{{#isQueryParam}}
+            {{paramName}}{{/isQueryParam}}{{#isPathParam}}
+            path_{{paramName}}{{/isPathParam}}{{#isBodyParam}}
+            {{paramName}}{{/isBodyParam}}{{^-last}},{{/-last}}{{/allParams}}{{#isMultipart}}{{#hasParams}},{{/hasParams}}
             file{{/isMultipart}}
         );
 
