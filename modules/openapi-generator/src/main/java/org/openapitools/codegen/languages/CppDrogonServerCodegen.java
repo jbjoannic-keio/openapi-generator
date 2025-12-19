@@ -661,7 +661,7 @@ public class CppDrogonServerCodegen extends AbstractCppCodegen {
         return op;
     }
 
-    private void processMultipartRequestBody(Operation operation, CodegenOperation op) {
+    private void processMultipartOperation(Operation operation, CodegenOperation op) {
 		// find the multipart section to build the bodyParam
         RequestBody requestBody = ModelUtils.getReferencedRequestBody(openAPI, operation.getRequestBody());
         if (requestBody == null || requestBody.getContent() == null || requestBody.getContent().isEmpty()) {
