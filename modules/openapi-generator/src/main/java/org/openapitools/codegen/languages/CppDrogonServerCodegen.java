@@ -57,6 +57,10 @@ import io.swagger.v3.oas.models.media.Schema;
 import io.swagger.v3.oas.models.responses.ApiResponse;
 import io.swagger.v3.oas.models.servers.Server;
 
+import io.swagger.v3.oas.models.parameters.RequestBody;
+import io.swagger.v3.oas.models.media.MediaType;
+import io.swagger.v3.oas.models.media.Encoding;
+
 public class CppDrogonServerCodegen extends AbstractCppCodegen {
     public static final String PROJECT_NAME = "projectName";
     private final Logger LOGGER = LoggerFactory.getLogger(CppDrogonServerCodegen.class);
@@ -610,6 +614,10 @@ public class CppDrogonServerCodegen extends AbstractCppCodegen {
 
         }
 
+        if (op.isMultipart) {
+            processMultipartRequestBody(operation, op);
+        }
+
         // Build pathSimple and pathComplete for Drogon
         String pathSimple = path;
         StringBuilder pathComplete = new StringBuilder(path);
@@ -651,6 +659,110 @@ public class CppDrogonServerCodegen extends AbstractCppCodegen {
         op.vendorExtensions.put("x-codegen-drogon-path", pathForDrogon);
 
         return op;
+    }
+
+    private void processMultipartOperation(Operation operation, CodegenOperation op) {
+		// find the multipart section to build the bodyParam
+        RequestBody requestBody = ModelUtils.getReferencedRequestBody(openAPI, operation.getRequestBody());
+        if (requestBody == null || requestBody.getContent() == null || requestBody.getContent().isEmpty()) {
+            return;
+        }
+
+        Schema schema = ModelUtils.getSchemaFromRequestBody(requestBody);
+        if (schema == null) {
+            System.out.println("[Drogon] No schema for op " + op.operationId);
+            return;
+        }
+
+        Schema resolved = ModelUtils.getReferencedSchema(openAPI, schema);
+        if (resolved != null) {
+            schema = resolved;
+        }
+
+        Map<String, Schema> props = schema.getProperties();
+        if (props == null || props.isEmpty()) {
+            System.out.println("[Drogon] No schema properties for op " + op.operationId
+                            + " (type=" + schema.getType() + ", ref=" + schema.get$ref() + ")");
+            return;
+        }
+
+        String jsonName = null;
+        String fileName = null;
+        Schema jsonSchema = null;
+
+        for (Map.Entry<String, Schema> entry : props.entrySet()) {
+            String propName = entry.getKey();
+            Schema propSchema = entry.getValue();
+
+            if (ModelUtils.isBinarySchema(propSchema)) {
+                fileName = propName;
+            } else if (jsonName == null) {
+                jsonName = propName;
+                jsonSchema = propSchema;
+            }
+        }
+
+        if (jsonName == null || jsonSchema == null || fileName == null) {
+            System.out.println("[Drogon] Multipart op " + op.operationId +
+                            " does not look like JSON+file (jsonName=" + jsonName +
+                            ", fileName=" + fileName + ")");
+            return;
+        }
+
+        bodyParamForMultipart(op, jsonName, jsonSchema);
+    }
+
+    private void bodyParamForMultipart(CodegenOperation op, String jsonName, Schema jsonSchema) {
+		// build a bodyParam to fill the mustache template correctly
+        CodegenParameter body = op.bodyParam;
+        if (body == null) {
+            body = new CodegenParameter();
+            body.isBodyParam = true;
+            body.required = true;
+            body.baseName = jsonName;
+            body.paramName = toVarName(jsonName);
+
+            op.bodyParam = body;
+
+            if (op.bodyParams == null) {
+                op.bodyParams = new ArrayList<>();
+            }
+            op.bodyParams.add(body);
+
+            if (op.allParams == null) {
+                op.allParams = new ArrayList<>();
+            }
+            op.allParams.add(body);
+
+            if (op.requiredParams == null) {
+                op.requiredParams = new ArrayList<>();
+            }
+            op.requiredParams.add(body);
+        }
+
+        CodegenProperty cp = fromProperty(jsonName, jsonSchema, false);
+
+        String cppType = cp.dataType;
+        if (cppType != null && !cppType.startsWith("std::") && !cppType.contains("::")) {
+            cppType = prefixWithNameSpaceIfNeeded(cppType);
+        }
+
+        body.dataType = cppType;
+        body.baseType = cp.baseType;
+        body.isPrimitiveType = cp.isPrimitiveType;
+        body.paramName = toVarName(jsonName);
+        body.baseName = cp.baseName;
+        body.required = true;
+        body.isBodyParam = true;
+
+        if (body.vendorExtensions == null) {
+            body.vendorExtensions = new HashMap<>();
+        }
+        body.vendorExtensions.put("x-drogon-multipart-json-name", jsonName);
+
+        if (op.allParams != null) {
+            op.allParams.removeIf(p->p.isFormParam); // getting rid of duplicate parameters
+        }
     }
 
     /**
@@ -762,7 +874,7 @@ public class CppDrogonServerCodegen extends AbstractCppCodegen {
         for (List<CodegenParameter> list : lists) {
             if (list == null) continue;
             for (CodegenParameter param : list) {
-                boolean paramSupportsParsing = (!param.isFormParam && !param.isFile && !param.isCookieParam);
+                boolean paramSupportsParsing = (!param.isCookieParam);
                 isParsingSupported = isParsingSupported && paramSupportsParsing;
 
                 postProcessSingleParam(param);
