@@ -171,12 +171,6 @@ inline Json::Value toJson(std::int64_t n)       { return Json::Value(static_cast
 inline Json::Value toJson(double d)             { return Json::Value(d); }
 inline Json::Value toJson(float f)              { return Json::Value(static_cast<double>(f)); }
 
-template<typename T>
-Json::Value toJson(const std::optional<T> &oValue)
-{
-    return oValue.has_value() ? toJson(oValue.value()) : Json::Value();
-}
-
 // ---------- toJson: containers ----------
 template<typename T>
 Json::Value toJson(const std::vector<T>& vec)
@@ -210,6 +204,12 @@ toJson(const std::map<K, V>& map)
     return jsonMap;
 }
 
+// ------ toJson: optional ----------
+template<typename T>
+Json::Value toJson(const std::optional<T> &oValue)
+{
+    return oValue.has_value() ? toJson(oValue.value()) : Json::Value();
+}
 
 // ------ toJson: with key ----------
 template<typename T>
@@ -246,24 +246,14 @@ void fromJson(const Json::Value& j, T& value)
 
 // ---------- fromJson: base overloads ----------
 inline void fromJson(const Json::Value& json, std::string& str) { str = json.asString(); }
-inline void fromJson(const Json::Value& json, bool& b)           { b = json.asBool(); }
-inline void fromJson(const Json::Value& json, std::int32_t& n)   { n = static_cast<std::int32_t>(json.asInt()); }
-inline void fromJson(const Json::Value& json, std::int64_t& n)   { n = static_cast<std::int64_t>(json.asInt64()); }
-inline void fromJson(const Json::Value& json, double& d)         { d = json.asDouble(); }
-inline void fromJson(const Json::Value& json, float& f)          { f = json.asFloat(); }
-inline void fromJson(const Json::Value& json, std::uint32_t& n)   { n = static_cast<std::uint32_t>(json.asUInt()); }
-inline void fromJson(const Json::Value& json, std::uint64_t& n)  { n = static_cast<std::uint64_t>(json.asUInt64()); }
+inline void fromJson(const Json::Value& json, bool& b)          { b = json.asBool(); }
+inline void fromJson(const Json::Value& json, std::int32_t& n)  { n = static_cast<std::int32_t>(json.asInt()); }
+inline void fromJson(const Json::Value& json, std::int64_t& n)  { n = static_cast<std::int64_t>(json.asInt64()); }
+inline void fromJson(const Json::Value& json, double& d)        { d = json.asDouble(); }
+inline void fromJson(const Json::Value& json, float& f)         { f = json.asFloat(); }
+inline void fromJson(const Json::Value& json, std::uint32_t& n) { n = static_cast<std::uint32_t>(json.asUInt()); }
+inline void fromJson(const Json::Value& json, std::uint64_t& n) { n = static_cast<std::uint64_t>(json.asUInt64()); }
 inline void fromJson(const Json::Value& /*json*/, std::nullptr_t& /*null*/)   { /* no-op */ }
-
-template<typename T>
-inline void fromJson(const Json::Value& j, std::optional<T>& oValue)
-{
-    if (j.isNull()) { oValue.reset(); return; }
-    T v;
-    fromJson(j, v);
-    oValue = std::move(v);
-}
-
 
 // ---------- fromJson: containers ----------
 template<typename T>
@@ -306,6 +296,17 @@ fromJson(const Json::Value& json, std::map<K, V>& map)
     }
 }
 
+// ------ fromJson: optional ----------
+template<typename T>
+inline void fromJson(const Json::Value& j, std::optional<T>& oValue)
+{
+    if (j.isNull()) { oValue.reset(); return; }
+    T v;
+    fromJson(j, v);
+    oValue = std::move(v);
+}
+
+// ------ fromJson: with key ----------
 template<typename T>
 inline void fromJson(const Json::Value& json, T &value, std::string_view key)
 {
