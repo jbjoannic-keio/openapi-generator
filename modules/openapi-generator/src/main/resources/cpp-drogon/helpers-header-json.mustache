@@ -171,6 +171,29 @@ inline Json::Value toJson(std::int64_t n)       { return Json::Value(static_cast
 inline Json::Value toJson(double d)             { return Json::Value(d); }
 inline Json::Value toJson(float f)              { return Json::Value(static_cast<double>(f)); }
 
+template<typename T>
+Json::Value toJson(const std::optional<T> &oValue);
+
+template<typename T>
+Json::Value toJson(const std::vector<T>& vec);
+
+template<typename T>
+Json::Value toJson(const std::set<T>& s);
+
+template<typename K, typename V>
+typename std::enable_if<std::is_same<K, std::string>::value, Json::Value>::type
+toJson(const std::map<K, V>& map);
+
+template<typename T>
+inline void toJson(Json::Value& json, const T& value, std::string_view key);
+
+// ------ toJson: optional ----------
+template<typename T>
+Json::Value toJson(const std::optional<T> &oValue)
+{
+    return oValue.has_value() ? toJson(oValue.value()) : Json::Value();
+}
+
 // ---------- toJson: containers ----------
 template<typename T>
 Json::Value toJson(const std::vector<T>& vec)
@@ -202,13 +225,6 @@ toJson(const std::map<K, V>& map)
         jsonMap[key] = toJson(value);
     }
     return jsonMap;
-}
-
-// ------ toJson: optional ----------
-template<typename T>
-Json::Value toJson(const std::optional<T> &oValue)
-{
-    return oValue.has_value() ? toJson(oValue.value()) : Json::Value();
 }
 
 // ------ toJson: with key ----------
@@ -255,6 +271,32 @@ inline void fromJson(const Json::Value& json, std::uint32_t& n) { n = static_cas
 inline void fromJson(const Json::Value& json, std::uint64_t& n) { n = static_cast<std::uint64_t>(json.asUInt64()); }
 inline void fromJson(const Json::Value& /*json*/, std::nullptr_t& /*null*/)   { /* no-op */ }
 
+template<typename T>
+inline void fromJson(const Json::Value& j, std::optional<T>& oValue);
+
+template<typename T>
+inline void fromJson(const Json::Value& json, std::vector<T>& vec);
+
+template<typename T>
+inline void fromJson(const Json::Value& json, std::set<T>& s);
+
+template<typename K, typename V>
+typename std::enable_if<std::is_same<K, std::string>::value>::type
+fromJson(const Json::Value& json, std::map<K, V>& map);
+
+template<typename T>
+inline void fromJson(const Json::Value& json, T &value, std::string_view key);
+
+// ------ fromJson: optional ----------
+template<typename T>
+inline void fromJson(const Json::Value& j, std::optional<T>& oValue)
+{
+    if (j.isNull()) { oValue.reset(); return; }
+    T v;
+    fromJson(j, v);
+    oValue = std::move(v);
+}
+
 // ---------- fromJson: containers ----------
 template<typename T>
 inline void fromJson(const Json::Value& json, std::vector<T>& vec)
@@ -294,16 +336,6 @@ fromJson(const Json::Value& json, std::map<K, V>& map)
         fromJson(json[key], value);
         map.emplace(key, std::move(value));
     }
-}
-
-// ------ fromJson: optional ----------
-template<typename T>
-inline void fromJson(const Json::Value& j, std::optional<T>& oValue)
-{
-    if (j.isNull()) { oValue.reset(); return; }
-    T v;
-    fromJson(j, v);
-    oValue = std::move(v);
 }
 
 // ------ fromJson: with key ----------
