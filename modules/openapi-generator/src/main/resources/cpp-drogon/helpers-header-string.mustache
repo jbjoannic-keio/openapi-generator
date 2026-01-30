@@ -54,6 +54,18 @@ bool fromStringValue(const std::string &inStr, float      &value);
 bool fromStringValue(const std::string &inStr, double     &value);
 
 template<typename T>
+bool fromStringValue(const std::string &inStr, std::optional<T> &oValue);
+
+template<typename T>
+bool fromStringValue(const std::vector<std::string> &inStr,
+                     std::vector<T> &value);
+
+template<typename T>
+bool fromStringValue(const std::string &inStr,
+                     std::vector<T> &value,
+                     char separator = ',');
+
+template<typename T>
 bool fromStringValue(const std::string &inStr, std::optional<T> &oValue)
 {
     return fromStringValue(inStr, oValue.value());
