@@ -94,7 +94,7 @@ bool fromStringValue(const std::vector<std::string> &inStr,
 template<typename T>
 bool fromStringValue(const std::string &inStr,
                      std::vector<T> &value,
-                     char separator = ',')
+                     char separator)
 {
     std::vector<std::string> parts;
     std::istringstream       ss(inStr);
