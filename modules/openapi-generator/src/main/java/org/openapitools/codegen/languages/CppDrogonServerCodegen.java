@@ -615,7 +615,7 @@ public class CppDrogonServerCodegen extends AbstractCppCodegen {
         }
 
         if (op.isMultipart) {
-            processMultipartRequestBody(operation, op);
+            processMultipartOperation(operation, op);
         }
 
         // Build pathSimple and pathComplete for Drogon
