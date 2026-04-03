@@ -35,7 +35,7 @@ virtual ~{{classname}}Interface() = default;
 {{#notes}}/// <remarks>{{notes}}</remarks>{{/notes}}
 {{#vendorExtensions.x-codegen-drogon-is-parsing-supported}}
 virtual {{operationId}}Response {{vendorExtensions.operationIdSnakeCase}}({{#allParams}}
-    const {{#isModel}}{{#isOptional}}{{/isOptional}}{{modelNamespace}}::{{/isModel}}{{{dataType}}}& {{#isHeaderParam}}header_{{/isHeaderParam}}{{#isQueryParam}}query_{{/isQueryParam}}{{#isPathParam}}path_{{/isPathParam}}{{paramName}}{{^-last}}, {{/-last}}{{/allParams}}{{#isMultipart}}{{#hasParams}}, {{/hasParams}}
+    const {{{dataType}}}& {{#isHeaderParam}}header_{{/isHeaderParam}}{{#isQueryParam}}query_{{/isQueryParam}}{{#isPathParam}}path_{{/isPathParam}}{{paramName}}{{^-last}}, {{/-last}}{{/allParams}}{{#isMultipart}}{{#hasParams}}, {{/hasParams}}
     const drogon::HttpFile &file{{/isMultipart}}
 ) = 0;
 {{/vendorExtensions.x-codegen-drogon-is-parsing-supported}}

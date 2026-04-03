@@ -94,6 +94,7 @@ public class CppDrogonServerCodegen extends AbstractCppCodegen {
         DROGON_CONTENT_TYPE_MAPPING.put("text/html", "CT_TEXT_HTML");
         DROGON_CONTENT_TYPE_MAPPING.put("text/css", "CT_TEXT_CSS");
         DROGON_CONTENT_TYPE_MAPPING.put("text/csv", "CT_TEXT_CSV");
+        DROGON_CONTENT_TYPE_MAPPING.put("text/event-stream", "CT_CUSTOM");
         DROGON_CONTENT_TYPE_MAPPING.put("application/octet-stream", "CT_APPLICATION_OCTET_STREAM");
         DROGON_CONTENT_TYPE_MAPPING.put("multipart/form-data", "CT_MULTIPART_FORM_DATA");
         DROGON_CONTENT_TYPE_MAPPING.put("application/x-www-form-urlencoded", "CT_APPLICATION_X_WWW_FORM_URLENCODED");
@@ -827,29 +828,71 @@ public class CppDrogonServerCodegen extends AbstractCppCodegen {
         return objs;
     }
 
+    private void syncBodyParamSignature(List<CodegenParameter> params, CodegenParameter bodyParam) {
+        if (params == null || bodyParam == null) {
+            return;
+        }
+
+        for (CodegenParameter param : params) {
+            if (!param.isBodyParam) {
+                continue;
+            }
+
+            if (!StringUtils.equals(param.paramName, bodyParam.paramName)) {
+                continue;
+            }
+
+            param.dataType = bodyParam.dataType;
+            param.isOptional = bodyParam.isOptional;
+            param.required = bodyParam.required;
+        }
+    }
+
+    private void syncBodyParamSignature(CodegenOperation op) {
+        if (op == null || op.bodyParam == null) {
+            return;
+        }
+
+        syncBodyParamSignature(op.bodyParams, op.bodyParam);
+        syncBodyParamSignature(op.allParams, op.bodyParam);
+        syncBodyParamSignature(op.requiredParams, op.bodyParam);
+        syncBodyParamSignature(op.optionalParams, op.bodyParam);
+    }
+
     private void postProcessSingleOperation(OperationMap operations, CodegenOperation op) {
         if (op.vendorExtensions == null) {
             op.vendorExtensions = new HashMap<>();
         }
 
         if (op.bodyParam != null) {
-            if (op.bodyParam.vendorExtensions == null) {
-                op.bodyParam.vendorExtensions = new HashMap<>();
-            }
-
-            boolean isStringOrDate = op.bodyParam.isString || op.bodyParam.isDate;
-            // Ensure fully-qualified model type for single-model request bodies (not
-            // containers)
-            // Detect containers by looking at the C++ type (e.g., "std::vector<...>",
-            // "std::map<...>", "std::set<...>")
             String dt = op.bodyParam.dataType;
-            boolean isStdContainer = dt != null && (dt.startsWith("std::vector<") ||
-                    dt.startsWith("std::map<") ||
-                    dt.startsWith("std::set<"));
-            if (!op.bodyParam.isPrimitiveType && !isStdContainer) {
-                if (dt != null && !dt.startsWith("std::") && !dt.contains("::")) {
-                    op.bodyParam.dataType = prefixWithNameSpaceIfNeeded(dt);
+
+            if (dt != null && !dt.isEmpty()) {
+                boolean isStdContainer =
+                        dt.startsWith("std::vector<") ||
+                        dt.startsWith("std::map<") ||
+                        dt.startsWith("std::set<");
+
+                boolean isAlreadyOptional = dt.startsWith("std::optional<");
+
+                if (!op.bodyParam.isPrimitiveType && !isStdContainer && !isAlreadyOptional) {
+                    if (!dt.startsWith("std::") && !dt.contains("::")) {
+                        dt = prefixWithNameSpaceIfNeeded(dt);
+                    }
                 }
+
+                if (!op.bodyParam.required) {
+                    if (!isAlreadyOptional) {
+                        dt = "std::optional<" + dt + ">";
+                    }
+                    op.bodyParam.dataType = dt;
+                    op.bodyParam.isOptional = true;
+                } else {
+                    op.bodyParam.dataType = dt;
+                    op.bodyParam.isOptional = false;
+                }
+
+                syncBodyParamSignature(op);
             }
 
         }
