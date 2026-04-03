@@ -185,9 +185,14 @@ void {{classname}}::{{vendorExtensions.operationIdSnakeCase}}_handler(
             {{#isOptional}}
             if (req->bodyLength() > 0) {
                 {{paramName}}.emplace();
-
+                auto* bodyTarget = &{{paramName}}.value();
+            {{/isOptional}}
+            {{^isOptional}}
+            {
+                auto* bodyTarget = &{{paramName}};
+            {{/isOptional}}
                 if (auto json = req->getJsonObject()) {
-                    {{helpersNamespace}}::json::fromJson::fromJson(*json, *{{paramName}});
+                    {{helpersNamespace}}::json::fromJson::fromJson(*json, *bodyTarget);
                 } else {
                     Json::CharReaderBuilder b;
                     std::unique_ptr<Json::CharReader> reader(b.newCharReader());
@@ -198,32 +203,12 @@ void {{classname}}::{{vendorExtensions.operationIdSnakeCase}}_handler(
                     if (!reader->parse(data, data + len, &jsonBody, &errs)) {
                         throw std::invalid_argument("Invalid JSON body");
                     }
-                    {{helpersNamespace}}::json::fromJson::fromJson(jsonBody, *{{paramName}});
+                    {{helpersNamespace}}::json::fromJson::fromJson(jsonBody, *bodyTarget);
                 }
 
                 // Validate only if the type provides validate(); no-op otherwise
-                {{helpersNamespace}}::autoValidate(*{{paramName}});
+                {{helpersNamespace}}::autoValidate(*bodyTarget);
             }
-            {{/isOptional}}
-            {{^isOptional}}
-            if (auto json = req->getJsonObject()) {
-                {{helpersNamespace}}::json::fromJson::fromJson(*json, {{paramName}});
-            } else {
-                Json::CharReaderBuilder b;
-                std::unique_ptr<Json::CharReader> reader(b.newCharReader());
-                Json::Value jsonBody;
-                std::string errs;
-                const char* data = req->bodyData();
-                const size_t len = req->bodyLength();
-                if (!reader->parse(data, data + len, &jsonBody, &errs)) {
-                    throw std::invalid_argument("Invalid JSON body");
-                }
-                {{helpersNamespace}}::json::fromJson::fromJson(jsonBody, {{paramName}});
-            }
-
-            // Validate only if the type provides validate(); no-op otherwise
-            {{helpersNamespace}}::autoValidate({{paramName}});
-            {{/isOptional}}
         } catch (const std::exception& e) {
             handleParsingException(e, std::move(cb));
             return;
